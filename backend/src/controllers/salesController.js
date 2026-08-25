@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { BranchSale, Stock, Warehouse, Product } = require('../models');
 const sequelize = require('../config/database');
+const { todayStr } = require('../utils/date');
 
 async function findBranchWarehouse(branchId, t) {
   return Warehouse.findOne({ where: { type: 'branch', branch_id: branchId }, transaction: t });
@@ -84,7 +85,7 @@ exports.create = async (req, res) => {
 
 exports.dailyTotal = async (req, res) => {
   try {
-    const date = req.query.date || new Date().toISOString().slice(0, 10);
+    const date = req.query.date || todayStr();
     const where = { sale_date: date };
     if (req.query.branch_id) where.branch_id = req.query.branch_id;
     else if (req.user.role === 'branch') where.branch_id = req.user.branch_id;

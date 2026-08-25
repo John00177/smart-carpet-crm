@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { Purchase, Stock, Warehouse, Product, User } = require('../models');
 const sequelize = require('../config/database');
+const { todayStr } = require('../utils/date');
 
 exports.list = async (req, res) => {
   try {
@@ -64,7 +65,7 @@ exports.create = async (req, res) => {
 
 exports.dailyTotal = async (req, res) => {
   try {
-    const date = req.query.date || new Date().toISOString().slice(0, 10);
+    const date = req.query.date || todayStr();
     const purchases = await Purchase.findAll({ where: { purchase_date: date } });
     const total = purchases.reduce((sum, p) => sum + parseFloat(p.total_cost), 0);
     const qty = purchases.reduce((sum, p) => sum + p.quantity, 0);

@@ -3,19 +3,7 @@ const {
   Stock, Product, Warehouse, Purchase, Transfer, TransferItem, BranchSale, Payment, User,
 } = require('../models');
 const { computeBranchDebt } = require('./paymentController');
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-function daysAgoStr(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-}
-function monthStartStr() {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
-}
+const { todayStr, daysAgoStr, monthStartStr } = require('../utils/date');
 
 async function stockTotals(warehouseIds) {
   const where = warehouseIds ? { warehouse_id: warehouseIds } : {};

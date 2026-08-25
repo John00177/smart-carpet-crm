@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { Payment, Transfer, Warehouse, User } = require('../models');
+const { todayStr } = require('../utils/date');
 
 async function computeBranchDebt(branchId) {
   const warehouse = await Warehouse.findOne({ where: { type: 'branch', branch_id: branchId } });
@@ -89,7 +90,7 @@ exports.debtForBranch = async (req, res) => {
 
 exports.dailyTotal = async (req, res) => {
   try {
-    const date = req.query.date || new Date().toISOString().slice(0, 10);
+    const date = req.query.date || todayStr();
     const payments = await Payment.findAll({ where: { payment_date: date } });
     const total = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
     res.json({ date, total_amount: total, count: payments.length });
