@@ -10,6 +10,7 @@ const purchaseRoutes = require('./routes/purchases');
 const transferRoutes = require('./routes/transfers');
 const salesRoutes = require('./routes/sales');
 const paymentRoutes = require('./routes/payments');
+const expenseRoutes = require('./routes/expenses');
 const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
@@ -27,6 +28,7 @@ app.use('/api/purchases', purchaseRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/expenses', expenseRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));

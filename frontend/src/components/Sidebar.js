@@ -13,6 +13,7 @@ function getNavLinks(role, t) {
       { to: '/purchases', label: t('nav_purchases') },
       { to: '/sales', label: t('nav_sales') },
       { to: '/payments', label: t('nav_payments') },
+      { to: '/expenses', label: t('expenses') },
     ],
     warehouse: [
       { to: '/', label: t('nav_dashboard') },
@@ -24,6 +25,7 @@ function getNavLinks(role, t) {
       { to: '/', label: t('nav_dashboard') },
       { to: '/sales', label: t('nav_my_sales') },
       { to: '/payments', label: t('nav_my_payments') },
+      { to: '/expenses', label: t('expenses') },
     ],
   };
   return linksByRole[role] || [];

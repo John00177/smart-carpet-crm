@@ -8,6 +8,7 @@ const Transfer = require('./Transfer');
 const TransferItem = require('./TransferItem');
 const BranchSale = require('./BranchSale');
 const Payment = require('./Payment');
+const Expense = require('./Expense');
 
 // Stock belongs to Warehouse & Product
 Stock.belongsTo(Warehouse, { foreignKey: 'warehouse_id' });
@@ -30,6 +31,11 @@ TransferItem.belongsTo(Product, { foreignKey: 'product_id' });
 // BranchSale belongs to Product
 BranchSale.belongsTo(Product, { foreignKey: 'product_id' });
 
+// Expense is keyed by the logical branch id (1..5), which matches User.branch_id
+// rather than User.id — so the join needs an explicit targetKey.
+Expense.belongsTo(User, { foreignKey: 'branch_id', targetKey: 'branch_id', as: 'branchUser', constraints: false });
+Expense.belongsTo(User, { foreignKey: 'created_by', as: 'creator', constraints: false });
+
 module.exports = {
   sequelize,
   User,
@@ -41,4 +47,5 @@ module.exports = {
   TransferItem,
   BranchSale,
   Payment,
+  Expense,
 };

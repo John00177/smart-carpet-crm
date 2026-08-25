@@ -6,6 +6,7 @@ import { BarChart, ProportionBar } from '../components/Charts';
 import api from '../services/api';
 import { formatMoney, formatQty, dateStr } from '../utils/format';
 import { defaultRange } from '../utils/dateRange';
+import { shortMonth } from '../constants/months';
 import { useLang } from '../context/LangContext';
 
 export default function AdminDashboard() {
@@ -15,6 +16,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sortDesc, setSortDesc] = useState(true);
+  const [profitDesc, setProfitDesc] = useState(true);
   const [expanded, setExpanded] = useState(null);
 
   const load = useCallback(() => {
@@ -32,9 +34,13 @@ export default function AdminDashboard() {
     ? [...data.branch_debts].sort((a, b) => (sortDesc ? b.debt - a.debt : a.debt - b.debt))
     : [];
 
+  const profitability = data && data.branch_profitability
+    ? [...data.branch_profitability].sort((a, b) => (profitDesc ? b.net - a.net : a.net - b.net))
+    : [];
+
   const chartData = data
     ? data.cash_flow_series.flatMap((p) => ([
-      { label: bucketLabel(p.key, data.series_mode), value: p.income, color: 'var(--color-success)' },
+      { label: bucketLabel(p.key, data.series_mode, lang), value: p.income, color: 'var(--color-success)' },
       { label: '', value: p.outcome, color: 'var(--color-accent)' },
     ]))
     : [];
@@ -190,6 +196,41 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {data && data.branch_profitability && (
+        <div className="section">
+          <div className="section-title">{t('branch_profitability')}</div>
+          <div className="table-wrap">
+            <table className="premium-table">
+              <thead>
+                <tr>
+                  <th>{t('branch')}</th>
+                  <th>{t('revenue')}</th>
+                  <th>{t('expenses')}</th>
+                  <th className="sortable" onClick={() => setProfitDesc((s) => !s)}>
+                    {t('net_profit')} {profitDesc ? '↓' : '↑'}
+                  </th>
+                  <th>{t('profit_margin')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {profitability.map((b) => (
+                  <tr key={b.id}>
+                    <td>{b.name}</td>
+                    <td>{formatMoney(b.revenue)}</td>
+                    <td className={b.expenses > 0 ? 'neg' : ''}>{formatMoney(b.expenses)}</td>
+                    <td className={b.net >= 0 ? 'pos' : 'neg'}>{formatMoney(b.net)}</td>
+                    <td className={b.margin >= 0 ? 'pos' : 'neg'}>{b.revenue > 0 ? `${b.margin}%` : '—'}</td>
+                  </tr>
+                ))}
+                {profitability.length === 0 && (
+                  <tr><td colSpan={5}><EmptyState icon="📊" text={t('no_data')} /></td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {data && (
         <div className="section">
           <div className="section-title">{t('movement_summary')}</div>
@@ -228,10 +269,7 @@ function MiniStat({ label, main, sub }) {
   );
 }
 
-function bucketLabel(key, mode) {
-  if (mode === 'month') {
-    const [y, m] = key.split('-');
-    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-GB', { month: 'short' });
-  }
+function bucketLabel(key, mode, lang) {
+  if (mode === 'month') return shortMonth(key, lang);
   return String(Number(key.slice(8, 10)));
 }

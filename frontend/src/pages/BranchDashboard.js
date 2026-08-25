@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Modal from '../components/Modal';
 import DateFilterBar from '../components/DateFilterBar';
@@ -7,6 +8,7 @@ import { BarChart } from '../components/Charts';
 import api from '../services/api';
 import { formatMoney, formatQty, dateStr } from '../utils/format';
 import { defaultRange } from '../utils/dateRange';
+import { shortMonth } from '../constants/months';
 import { useLang } from '../context/LangContext';
 
 const SWATCHES = {
@@ -19,6 +21,7 @@ function swatchFor(color) {
 
 export default function BranchDashboard() {
   const { t, lang } = useLang();
+  const navigate = useNavigate();
   const [filter, setFilter] = useState(defaultRange);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +41,7 @@ export default function BranchDashboard() {
   useEffect(load, [load]);
 
   const chartData = data
-    ? data.sales_series.map((p) => ({ label: bucketLabel(p.key, data.series_mode), value: p.value }))
+    ? data.sales_series.map((p) => ({ label: bucketLabel(p.key, data.series_mode, lang), value: p.value }))
     : [];
 
   return (
@@ -84,6 +87,24 @@ export default function BranchDashboard() {
               <div className="label">{t('my_sales_period')}</div>
               <div className="stat-value green">{formatMoney(data.range.sales_amount)}</div>
               <div className="sub">{formatQty(data.range.sales_qty)} {t('carpets')}</div>
+            </div>
+
+            <div
+              className="card branch-stat expense-card"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/expenses')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/expenses'); } }}
+            >
+              <div className="stat-icon" aria-hidden="true">💸</div>
+              <div className="label">{t('this_month_expenses')}</div>
+              <div className="stat-value">{formatMoney(data.range.expenses_amount)}</div>
+              <div className="sub">
+                {t('net_profit')}:{' '}
+                <strong className={data.range.net_profit >= 0 ? 'pos' : 'neg'}>
+                  {formatMoney(data.range.net_profit)}
+                </strong>
+              </div>
             </div>
           </div>
 
@@ -168,11 +189,8 @@ export default function BranchDashboard() {
   );
 }
 
-function bucketLabel(key, mode) {
-  if (mode === 'month') {
-    const [y, m] = key.split('-');
-    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-GB', { month: 'short' });
-  }
+function bucketLabel(key, mode, lang) {
+  if (mode === 'month') return shortMonth(key, lang);
   return String(Number(key.slice(8, 10)));
 }
 

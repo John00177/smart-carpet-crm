@@ -1,7 +1,8 @@
 const {
-  Stock, Product, Warehouse, Purchase, Transfer, TransferItem, BranchSale, Payment, User,
+  Stock, Product, Warehouse, Purchase, Transfer, TransferItem, BranchSale, Payment, User, Expense,
 } = require('../models');
 const { computeBranchDebt } = require('./paymentController');
+const { branchProfitability } = require('./expenseController');
 const {
   todayStr, daysAgoStr, monthStartStr, localDateStr, rangeFromQuery, dateWhere,
 } = require('../utils/date');
@@ -174,6 +175,8 @@ exports.adminDashboard = async (req, res) => {
       });
     }
 
+    const branch_profitability = await branchProfitability(startDate, endDate);
+
     res.json({
       total_carpets: totals.qty,
       total_cost_value: totals.cost,
@@ -202,6 +205,7 @@ exports.adminDashboard = async (req, res) => {
       weekly,
       monthly,
       branch_debts,
+      branch_profitability,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -253,10 +257,19 @@ exports.branchDashboard = async (req, res) => {
       order: [['transfer_date', 'DESC'], ['id', 'DESC']],
     });
 
+    const rangeExpenses = await Expense.findAll({
+      where: { ...dateWhere('expense_date', startDate, endDate), branch_id: branchId },
+    });
+    const expenses_amount = rangeExpenses.reduce((s, e) => s + parseFloat(e.amount), 0);
+    const sales_amount_total = rangeSales.reduce((s, x) => s + parseFloat(x.total_amount), 0);
+
     const range = {
       startDate,
       endDate,
-      sales_amount: rangeSales.reduce((s, x) => s + parseFloat(x.total_amount), 0),
+      expenses_amount,
+      expenses_count: rangeExpenses.length,
+      net_profit: sales_amount_total - expenses_amount,
+      sales_amount: sales_amount_total,
       sales_qty: rangeSales.reduce((s, x) => s + x.quantity, 0),
       payments_amount: rangePayments.reduce((s, p) => s + parseFloat(p.amount), 0),
       received_qty: rangeTransfers.reduce(

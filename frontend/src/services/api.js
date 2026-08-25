@@ -24,4 +24,14 @@ api.interceptors.response.use(
   }
 );
 
+export const expenseAPI = {
+  getAll: (params) => api.get('/expenses', { params }),
+  create: (data) => api.post('/expenses', data),
+  remove: (id) => api.delete(`/expenses/${id}`),
+  getSummary: (params) => api.get('/expenses/summary', { params }),
+  getCategoryBreakdown: (params) => api.get('/expenses/category-breakdown', { params }),
+  getDailyTotal: (date) => api.get('/expenses/daily/total', { params: { date } }),
+  getPeriodTotal: (startDate, endDate) => api.get('/expenses/period/total', { params: { startDate, endDate } }),
+};
+
 export default api;

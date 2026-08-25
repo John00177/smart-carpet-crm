@@ -12,6 +12,7 @@ import Transfers from './pages/Transfers';
 import Purchases from './pages/Purchases';
 import Sales from './pages/Sales';
 import Payments from './pages/Payments';
+import Expenses from './pages/Expenses';
 
 function PrivateRoute({ children, roles }) {
   const { user, loading } = useAuth();
@@ -41,6 +42,8 @@ function AppRoutes() {
       <Route path="/purchases" element={<PrivateRoute roles={['admin', 'warehouse']}><Purchases /></PrivateRoute>} />
       <Route path="/sales" element={<PrivateRoute roles={['admin', 'branch']}><Sales /></PrivateRoute>} />
       <Route path="/payments" element={<PrivateRoute roles={['admin', 'branch']}><Payments /></PrivateRoute>} />
+      <Route path="/expenses" element={<PrivateRoute roles={['admin', 'branch']}><Expenses /></PrivateRoute>} />
+      <Route path="/branch/expenses" element={<PrivateRoute roles={['branch']}><Expenses /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
