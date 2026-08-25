@@ -2,83 +2,86 @@ import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { money, qty } from '../utils/format';
+import { useLang } from '../context/LangContext';
 
 export default function AdminDashboard() {
+  const { t } = useLang();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     api.get('/dashboard/admin')
       .then((res) => setData(res.data))
-      .catch((err) => setError(err.response?.data?.error || 'Failed to load dashboard'));
+      .catch((err) => setError(err.response?.data?.error || t('failed_to_load_dashboard')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (error) return <Layout><div className="page-title">Admin Dashboard</div><div className="error-text">{error}</div></Layout>;
-  if (!data) return <Layout><div className="loading-wrap">Loading...</div></Layout>;
+  if (error) return <Layout><div className="page-title">{t('admin_dashboard')}</div><div className="error-text">{error}</div></Layout>;
+  if (!data) return <Layout><div className="loading-wrap">{t('loading')}</div></Layout>;
 
   return (
     <Layout>
-      <div className="page-title">Admin Dashboard</div>
+      <div className="page-title">{t('admin_dashboard')}</div>
 
       <div className="cards-grid">
         <div className="card">
-          <div className="label">Total Carpets (All Warehouses)</div>
+          <div className="label">{t('total_carpets_all')}</div>
           <div className="value">{qty(data.total_carpets)}</div>
         </div>
         <div className="card">
-          <div className="label">Total Cost Value</div>
+          <div className="label">{t('total_cost_value')}</div>
           <div className="value">{money(data.total_cost_value)}</div>
         </div>
         <div className="card">
-          <div className="label">Total Sell Value</div>
+          <div className="label">{t('total_sell_value')}</div>
           <div className="value">{money(data.total_sell_value)}</div>
         </div>
         <div className="card">
-          <div className="label">Total Branch Debt</div>
+          <div className="label">{t('total_branch_debt')}</div>
           <div className="value negative">{money(data.total_branch_debt)}</div>
         </div>
       </div>
 
       <div className="cards-grid">
         <div className="card">
-          <div className="label">Central Warehouse Worth</div>
+          <div className="label">{t('central_worth')}</div>
           <div className="value">{money(data.central_sell_value)}</div>
-          <div className="sub">{qty(data.central_carpets)} carpets · cost {money(data.central_cost_value)}</div>
+          <div className="sub">{qty(data.central_carpets)} {t('carpets_cost')} {money(data.central_cost_value)}</div>
         </div>
         <div className="card">
-          <div className="label">Branch Warehouses Worth</div>
+          <div className="label">{t('branch_worth')}</div>
           <div className="value">{money(data.branch_sell_value)}</div>
-          <div className="sub">{qty(data.branch_carpets)} carpets · cost {money(data.branch_cost_value)}</div>
+          <div className="sub">{qty(data.branch_carpets)} {t('carpets_cost')} {money(data.branch_cost_value)}</div>
         </div>
       </div>
 
       <div className="section">
-        <div className="section-title">Today</div>
+        <div className="section-title">{t('today')}</div>
         <div className="cards-grid">
           <div className="card">
-            <div className="label">Income (Payments Received)</div>
+            <div className="label">{t('income')}</div>
             <div className="value positive">{money(data.daily.income)}</div>
           </div>
           <div className="card">
-            <div className="label">Outcome (Paid to Manufacturer)</div>
+            <div className="label">{t('outcome')}</div>
             <div className="value negative">{money(data.daily.outcome)}</div>
           </div>
           <div className="card">
-            <div className="label">Net</div>
+            <div className="label">{t('net')}</div>
             <div className={`value ${data.daily.net >= 0 ? 'positive' : 'negative'}`}>{money(data.daily.net)}</div>
           </div>
           <div className="card">
-            <div className="label">Transfers Out</div>
+            <div className="label">{t('transfers_out')}</div>
             <div className="value">{qty(data.daily.transfers_out_qty)}</div>
-            <div className="sub">{money(data.daily.transfers_out_value)} cost value</div>
+            <div className="sub">{money(data.daily.transfers_out_value)} {t('cost_value')}</div>
           </div>
           <div className="card">
-            <div className="label">Purchases In</div>
+            <div className="label">{t('purchases_in')}</div>
             <div className="value">{qty(data.daily.purchases_in_qty)}</div>
             <div className="sub">{money(data.daily.purchases_in_value)}</div>
           </div>
           <div className="card">
-            <div className="label">Branch Sales Total</div>
+            <div className="label">{t('branch_sales_total')}</div>
             <div className="value">{money(data.daily.branch_sales)}</div>
           </div>
         </div>
@@ -86,35 +89,35 @@ export default function AdminDashboard() {
 
       <div className="cards-grid">
         <div className="section" style={{ margin: 0 }}>
-          <div className="section-title">This Week</div>
+          <div className="section-title">{t('this_week')}</div>
           <div className="card">
-            <div className="label">Net Income</div>
+            <div className="label">{t('net_income')}</div>
             <div className={`value ${data.weekly.net >= 0 ? 'positive' : 'negative'}`}>{money(data.weekly.net)}</div>
-            <div className="sub">In {money(data.weekly.income)} · Out {money(data.weekly.outcome)}</div>
+            <div className="sub">{money(data.weekly.income)} / {money(data.weekly.outcome)}</div>
           </div>
         </div>
         <div className="section" style={{ margin: 0 }}>
-          <div className="section-title">This Month</div>
+          <div className="section-title">{t('this_month')}</div>
           <div className="card">
-            <div className="label">Net Income</div>
+            <div className="label">{t('net_income')}</div>
             <div className={`value ${data.monthly.net >= 0 ? 'positive' : 'negative'}`}>{money(data.monthly.net)}</div>
-            <div className="sub">In {money(data.monthly.income)} · Out {money(data.monthly.outcome)}</div>
+            <div className="sub">{money(data.monthly.income)} / {money(data.monthly.outcome)}</div>
           </div>
         </div>
       </div>
 
       <div className="section">
-        <div className="section-title">Branch Debt</div>
+        <div className="section-title">{t('branch_debt_title')}</div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Branch</th>
-                <th>Manager</th>
-                <th>Total Given</th>
-                <th>Total Paid</th>
-                <th>Debt Remaining</th>
-                <th>Progress</th>
+                <th>{t('branch')}</th>
+                <th>{t('manager')}</th>
+                <th>{t('total_given')}</th>
+                <th>{t('total_paid')}</th>
+                <th>{t('debt_remaining')}</th>
+                <th>{t('progress')}</th>
               </tr>
             </thead>
             <tbody>

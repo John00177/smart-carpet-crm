@@ -1,11 +1,13 @@
 import React from 'react';
-import Navbar from './Navbar';
+import Sidebar from './Sidebar';
 
 export default function Layout({ children }) {
   return (
-    <div>
-      <Navbar />
-      <div className="page">{children}</div>
+    <div className="app-shell">
+      <Sidebar />
+      <div className="main-area">
+        <div className="page">{children}</div>
+      </div>
     </div>
   );
 }

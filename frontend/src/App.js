@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { LangProvider, useLang } from './context/LangContext';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import WarehouseDashboard from './pages/WarehouseDashboard';
@@ -13,7 +15,8 @@ import Payments from './pages/Payments';
 
 function PrivateRoute({ children, roles }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="loading-wrap">Loading...</div>;
+  const { t } = useLang();
+  if (loading) return <div className="loading-wrap">{t('loading')}</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
   return children;
@@ -45,10 +48,14 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <LangProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </LangProvider>
+    </ThemeProvider>
   );
 }

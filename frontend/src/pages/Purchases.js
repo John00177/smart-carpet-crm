@@ -2,24 +2,27 @@ import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { money, dateStr } from '../utils/format';
+import { useLang } from '../context/LangContext';
 
 export default function Purchases() {
+  const { t } = useLang();
   const [purchases, setPurchases] = useState([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get('/purchases').then((res) => setPurchases(res.data)).catch((err) => setError(err.response?.data?.error || 'Failed to load'));
+    api.get('/purchases').then((res) => setPurchases(res.data)).catch((err) => setError(err.response?.data?.error || t('failed_to_load')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <Layout>
-      <div className="page-title">Purchase History</div>
+      <div className="page-title">{t('purchase_history')}</div>
       {error && <div className="error-text">{error}</div>}
       <div className="section">
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>Date</th><th>Product</th><th>Qty</th><th>Unit Cost</th><th>Total</th><th>Supplier</th><th>By</th></tr>
+              <tr><th>{t('date')}</th><th>{t('product')}</th><th>{t('qty')}</th><th>{t('unit_cost')}</th><th>{t('total')}</th><th>{t('supplier')}</th><th>{t('by')}</th></tr>
             </thead>
             <tbody>
               {purchases.map((p) => (
@@ -33,7 +36,7 @@ export default function Purchases() {
                   <td>{p.creator?.name}</td>
                 </tr>
               ))}
-              {purchases.length === 0 && <tr><td colSpan={7}>No purchases yet</td></tr>}
+              {purchases.length === 0 && <tr><td colSpan={7}>{t('no_purchases_yet')}</td></tr>}
             </tbody>
           </table>
         </div>

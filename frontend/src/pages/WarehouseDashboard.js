@@ -3,8 +3,10 @@ import Layout from '../components/Layout';
 import Modal from '../components/Modal';
 import api from '../services/api';
 import { money, qty } from '../utils/format';
+import { useLang } from '../context/LangContext';
 
 export default function WarehouseDashboard() {
+  const { t } = useLang();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [showPurchase, setShowPurchase] = useState(false);
@@ -13,39 +15,40 @@ export default function WarehouseDashboard() {
   function load() {
     api.get('/dashboard/warehouse')
       .then((res) => setData(res.data))
-      .catch((err) => setError(err.response?.data?.error || 'Failed to load dashboard'));
+      .catch((err) => setError(err.response?.data?.error || t('failed_to_load_dashboard')));
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
 
-  if (error) return <Layout><div className="page-title">Warehouse Dashboard</div><div className="error-text">{error}</div></Layout>;
-  if (!data) return <Layout><div className="loading-wrap">Loading...</div></Layout>;
+  if (error) return <Layout><div className="page-title">{t('warehouse_dashboard')}</div><div className="error-text">{error}</div></Layout>;
+  if (!data) return <Layout><div className="loading-wrap">{t('loading')}</div></Layout>;
 
   return (
     <Layout>
-      <div className="page-title">Warehouse Dashboard</div>
+      <div className="page-title">{t('warehouse_dashboard')}</div>
 
       <div className="cards-grid">
         {data.warehouses.map((w) => (
           <div className="card" key={w.id}>
             <div className="label">{w.name}</div>
             <div className="value">{qty(w.total_qty)}</div>
-            <div className="sub">cost value {money(w.cost_value)}</div>
+            <div className="sub">{t('cost_value')} {money(w.cost_value)}</div>
           </div>
         ))}
       </div>
 
       <div className="btn-row">
-        <button className="btn" onClick={() => setShowPurchase(true)}>Record Purchase</button>
-        <button className="btn secondary" onClick={() => setShowTransfer(true)}>Transfer Stock</button>
+        <button className="btn" onClick={() => setShowPurchase(true)}>{t('record_purchase')}</button>
+        <button className="btn secondary" onClick={() => setShowTransfer(true)}>{t('transfer_stock')}</button>
       </div>
 
       <div className="section">
-        <div className="section-title">Central Warehouse Stock</div>
+        <div className="section-title">{t('central_stock_title')}</div>
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>Name (UZ)</th><th>Name (RU)</th><th>Size</th><th>Color</th><th>Cost</th><th>Sell</th><th>Qty</th></tr>
+              <tr><th>{t('name_uz')}</th><th>{t('name_ru')}</th><th>{t('size')}</th><th>{t('color')}</th><th>{t('cost')}</th><th>{t('sell')}</th><th>{t('qty')}</th></tr>
             </thead>
             <tbody>
               {data.central_stock.map((p) => (
@@ -60,34 +63,34 @@ export default function WarehouseDashboard() {
       </div>
 
       <div className="section">
-        <div className="section-title">Today's Transfers</div>
+        <div className="section-title">{t('todays_transfers')}</div>
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>From</th><th>To</th><th>Items</th><th>Cost Value</th><th>By</th></tr>
+              <tr><th>{t('from')}</th><th>{t('to')}</th><th>{t('items')}</th><th>{t('cost_value')}</th><th>{t('by')}</th></tr>
             </thead>
             <tbody>
-              {data.today_transfers.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.fromWarehouse?.name}</td>
-                  <td>{t.toWarehouse?.name}</td>
-                  <td>{t.items?.map((i) => `${i.Product?.name_uz} x${i.quantity}`).join(', ')}</td>
-                  <td>{money(t.total_cost)}</td>
-                  <td>{t.creator?.name}</td>
+              {data.today_transfers.map((tr) => (
+                <tr key={tr.id}>
+                  <td>{tr.fromWarehouse?.name}</td>
+                  <td>{tr.toWarehouse?.name}</td>
+                  <td>{tr.items?.map((i) => `${i.Product?.name_uz} x${i.quantity}`).join(', ')}</td>
+                  <td>{money(tr.total_cost)}</td>
+                  <td>{tr.creator?.name}</td>
                 </tr>
               ))}
-              {data.today_transfers.length === 0 && <tr><td colSpan={5}>No transfers today</td></tr>}
+              {data.today_transfers.length === 0 && <tr><td colSpan={5}>{t('no_transfers_today')}</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
 
       <div className="section">
-        <div className="section-title">Today's Purchases</div>
+        <div className="section-title">{t('todays_purchases')}</div>
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>Product</th><th>Qty</th><th>Unit Cost</th><th>Total</th><th>Supplier</th><th>By</th></tr>
+              <tr><th>{t('product')}</th><th>{t('qty')}</th><th>{t('unit_cost')}</th><th>{t('total')}</th><th>{t('supplier')}</th><th>{t('by')}</th></tr>
             </thead>
             <tbody>
               {data.today_purchases.map((p) => (
@@ -96,7 +99,7 @@ export default function WarehouseDashboard() {
                   <td>{money(p.total_cost)}</td><td>{p.supplier || '-'}</td><td>{p.creator?.name}</td>
                 </tr>
               ))}
-              {data.today_purchases.length === 0 && <tr><td colSpan={6}>No purchases today</td></tr>}
+              {data.today_purchases.length === 0 && <tr><td colSpan={6}>{t('no_purchases_today')}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -109,6 +112,7 @@ export default function WarehouseDashboard() {
 }
 
 function PurchaseModal({ onClose, onSaved }) {
+  const { t } = useLang();
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({ product_id: '', quantity: '', unit_cost: '', supplier: '', notes: '' });
   const [error, setError] = useState('');
@@ -120,7 +124,7 @@ function PurchaseModal({ onClose, onSaved }) {
     e.preventDefault();
     setError('');
     if (!form.product_id || !form.quantity || !form.unit_cost) {
-      setError('All fields are required');
+      setError(t('all_fields_required'));
       return;
     }
     setSaving(true);
@@ -134,42 +138,42 @@ function PurchaseModal({ onClose, onSaved }) {
       });
       onSaved();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to record purchase');
+      setError(err.response?.data?.error || t('failed_to_save'));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Modal title="Record Purchase from Manufacturer" onClose={onClose}>
+    <Modal title={t('record_purchase_title')} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label>Product</label>
+          <label>{t('product')}</label>
           <select value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })}>
-            <option value="">Select product</option>
+            <option value="">{t('select')}</option>
             {products.map((p) => <option key={p.id} value={p.id}>{p.name_uz} ({p.size}, {p.color})</option>)}
           </select>
         </div>
         <div className="form-group">
-          <label>Quantity</label>
+          <label>{t('quantity')}</label>
           <input type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
         </div>
         <div className="form-group">
-          <label>Unit Cost</label>
+          <label>{t('unit_cost')}</label>
           <input type="number" min="0" step="0.01" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} />
         </div>
         <div className="form-group">
-          <label>Supplier</label>
+          <label>{t('supplier')}</label>
           <input type="text" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
         </div>
         <div className="form-group">
-          <label>Notes</label>
+          <label>{t('notes')}</label>
           <textarea rows="2" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
         {error && <div className="error-text">{error}</div>}
         <div className="modal-actions">
-          <button type="button" className="btn secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+          <button type="button" className="btn secondary" onClick={onClose}>{t('cancel')}</button>
+          <button type="submit" className="btn" disabled={saving}>{saving ? t('saving') : t('save')}</button>
         </div>
       </form>
     </Modal>
@@ -177,6 +181,7 @@ function PurchaseModal({ onClose, onSaved }) {
 }
 
 function TransferModal({ warehouses, onClose, onSaved }) {
+  const { t } = useLang();
   const [products, setProducts] = useState([]);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -199,12 +204,12 @@ function TransferModal({ warehouses, onClose, onSaved }) {
     e.preventDefault();
     setError('');
     if (!from || !to || from === to) {
-      setError('Select different source and destination warehouses');
+      setError(t('select_different_warehouses'));
       return;
     }
     const validItems = items.filter((i) => i.product_id && i.quantity);
     if (validItems.length === 0) {
-      setError('Add at least one item');
+      setError(t('add_at_least_one_item'));
       return;
     }
     setSaving(true);
@@ -217,53 +222,53 @@ function TransferModal({ warehouses, onClose, onSaved }) {
       });
       onSaved();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create transfer');
+      setError(err.response?.data?.error || t('failed_to_save'));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Modal title="Transfer Stock" onClose={onClose}>
+    <Modal title={t('transfer_stock')} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label>From Warehouse</label>
+          <label>{t('from_warehouse')}</label>
           <select value={from} onChange={(e) => setFrom(e.target.value)}>
-            <option value="">Select</option>
+            <option value="">{t('select')}</option>
             {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
         </div>
         <div className="form-group">
-          <label>To Warehouse</label>
+          <label>{t('to_warehouse')}</label>
           <select value={to} onChange={(e) => setTo(e.target.value)}>
-            <option value="">Select</option>
+            <option value="">{t('select')}</option>
             {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
         </div>
-        <label>Items</label>
+        <label style={{ display: 'block', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, marginBottom: 7, color: 'var(--color-text-muted)' }}>{t('items')}</label>
         {items.map((item, idx) => (
           <div className="transfer-items-row" key={idx}>
             <div className="form-group">
               <select value={item.product_id} onChange={(e) => updateItem(idx, 'product_id', e.target.value)}>
-                <option value="">Product</option>
+                <option value="">{t('product')}</option>
                 {products.map((p) => <option key={p.id} value={p.id}>{p.name_uz}</option>)}
               </select>
             </div>
             <div className="form-group">
-              <input type="number" min="1" placeholder="Qty" value={item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value)} />
+              <input type="number" min="1" placeholder={t('qty')} value={item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value)} />
             </div>
             {items.length > 1 && <button type="button" className="btn secondary" onClick={() => removeItem(idx)}>-</button>}
           </div>
         ))}
-        <button type="button" className="btn secondary" onClick={addItem} style={{ marginBottom: 14 }}>+ Add Item</button>
+        <button type="button" className="btn secondary" onClick={addItem} style={{ marginBottom: 14 }}>+ {t('add_item')}</button>
         <div className="form-group">
-          <label>Notes</label>
+          <label>{t('notes')}</label>
           <textarea rows="2" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         {error && <div className="error-text">{error}</div>}
         <div className="modal-actions">
-          <button type="button" className="btn secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+          <button type="button" className="btn secondary" onClick={onClose}>{t('cancel')}</button>
+          <button type="submit" className="btn" disabled={saving}>{saving ? t('saving') : t('save')}</button>
         </div>
       </form>
     </Modal>

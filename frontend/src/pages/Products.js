@@ -4,25 +4,28 @@ import Modal from '../components/Modal';
 import api from '../services/api';
 import { money } from '../utils/format';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LangContext';
 
 export default function Products() {
   const { user } = useAuth();
+  const { t } = useLang();
   const [products, setProducts] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [error, setError] = useState('');
 
   function load() {
-    api.get('/products').then((res) => setProducts(res.data)).catch((err) => setError(err.response?.data?.error || 'Failed to load'));
+    api.get('/products').then((res) => setProducts(res.data)).catch((err) => setError(err.response?.data?.error || t('failed_to_load')));
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
 
   async function handleDelete(id) {
-    if (!window.confirm('Remove this product from the catalog?')) return;
+    if (!window.confirm(t('confirm_remove_product'))) return;
     try {
       await api.delete(`/products/${id}`);
       load();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete');
+      setError(err.response?.data?.error || t('failed_to_delete'));
     }
   }
 
@@ -30,10 +33,10 @@ export default function Products() {
 
   return (
     <Layout>
-      <div className="page-title">Carpet Catalog</div>
+      <div className="page-title">{t('carpet_catalog')}</div>
       {canEdit && (
         <div className="btn-row">
-          <button className="btn" onClick={() => setShowAdd(true)}>+ Add Product</button>
+          <button className="btn" onClick={() => setShowAdd(true)}>+ {t('add_product')}</button>
         </div>
       )}
       {error && <div className="error-text">{error}</div>}
@@ -42,8 +45,8 @@ export default function Products() {
           <table>
             <thead>
               <tr>
-                <th>Name (UZ)</th><th>Name (RU)</th><th>Size</th><th>Color</th>
-                <th>Cost</th><th>Sell</th><th>Retail</th>
+                <th>{t('name_uz')}</th><th>{t('name_ru')}</th><th>{t('size')}</th><th>{t('color')}</th>
+                <th>{t('cost')}</th><th>{t('sell')}</th><th>{t('retail')}</th>
                 {user.role === 'admin' && <th></th>}
               </tr>
             </thead>
@@ -53,7 +56,7 @@ export default function Products() {
                   <td>{p.name_uz}</td><td>{p.name_ru}</td><td>{p.size}</td><td>{p.color}</td>
                   <td>{money(p.cost_price)}</td><td>{money(p.sell_price)}</td><td>{money(p.retail_price)}</td>
                   {user.role === 'admin' && (
-                    <td><button className="btn secondary" onClick={() => handleDelete(p.id)}>Remove</button></td>
+                    <td><button className="btn secondary" onClick={() => handleDelete(p.id)}>{t('remove')}</button></td>
                   )}
                 </tr>
               ))}
@@ -67,6 +70,7 @@ export default function Products() {
 }
 
 function AddProductModal({ onClose, onSaved }) {
+  const { t } = useLang();
   const [form, setForm] = useState({ name_uz: '', name_ru: '', size: '', color: '', cost_price: '', sell_price: '', retail_price: '' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -75,7 +79,7 @@ function AddProductModal({ onClose, onSaved }) {
     e.preventDefault();
     setError('');
     for (const k of Object.keys(form)) {
-      if (!form[k] && form[k] !== 0) { setError('All fields are required'); return; }
+      if (!form[k] && form[k] !== 0) { setError(t('all_fields_required')); return; }
     }
     setSaving(true);
     try {
@@ -87,26 +91,26 @@ function AddProductModal({ onClose, onSaved }) {
       });
       onSaved();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to add product');
+      setError(err.response?.data?.error || t('failed_to_save'));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Modal title="Add Product" onClose={onClose}>
+    <Modal title={t('add_product')} onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <div className="form-group"><label>Name (Uzbek)</label><input value={form.name_uz} onChange={(e) => setForm({ ...form, name_uz: e.target.value })} /></div>
-        <div className="form-group"><label>Name (Russian)</label><input value={form.name_ru} onChange={(e) => setForm({ ...form, name_ru: e.target.value })} /></div>
-        <div className="form-group"><label>Size</label><input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} placeholder="e.g. 2x3m" /></div>
-        <div className="form-group"><label>Color</label><input value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div>
-        <div className="form-group"><label>Cost Price</label><input type="number" min="0" step="0.01" value={form.cost_price} onChange={(e) => setForm({ ...form, cost_price: e.target.value })} /></div>
-        <div className="form-group"><label>Sell Price (to branch)</label><input type="number" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} /></div>
-        <div className="form-group"><label>Retail Price (to customer)</label><input type="number" min="0" step="0.01" value={form.retail_price} onChange={(e) => setForm({ ...form, retail_price: e.target.value })} /></div>
+        <div className="form-group"><label>{t('name_uz')}</label><input value={form.name_uz} onChange={(e) => setForm({ ...form, name_uz: e.target.value })} /></div>
+        <div className="form-group"><label>{t('name_ru')}</label><input value={form.name_ru} onChange={(e) => setForm({ ...form, name_ru: e.target.value })} /></div>
+        <div className="form-group"><label>{t('size')}</label><input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} placeholder="e.g. 2x3m" /></div>
+        <div className="form-group"><label>{t('color')}</label><input value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div>
+        <div className="form-group"><label>{t('cost_price')}</label><input type="number" min="0" step="0.01" value={form.cost_price} onChange={(e) => setForm({ ...form, cost_price: e.target.value })} /></div>
+        <div className="form-group"><label>{t('sell_price_branch')}</label><input type="number" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} /></div>
+        <div className="form-group"><label>{t('retail_price_customer')}</label><input type="number" min="0" step="0.01" value={form.retail_price} onChange={(e) => setForm({ ...form, retail_price: e.target.value })} /></div>
         {error && <div className="error-text">{error}</div>}
         <div className="modal-actions">
-          <button type="button" className="btn secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+          <button type="button" className="btn secondary" onClick={onClose}>{t('cancel')}</button>
+          <button type="submit" className="btn" disabled={saving}>{saving ? t('saving') : t('save')}</button>
         </div>
       </form>
     </Modal>
