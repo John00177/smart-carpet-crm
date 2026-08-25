@@ -6,14 +6,14 @@ import { useLang } from '../context/LangContext';
 
 function getNavLinks(role, t) {
   const linksByRole = {
+    // The owner deliberately does not see the carpet catalogue or branch
+    // expenses — expenses are private to each branch.
     admin: [
       { to: '/', label: t('nav_dashboard') },
-      { to: '/products', label: t('nav_products') },
       { to: '/transfers', label: t('nav_transfers') },
       { to: '/purchases', label: t('nav_purchases') },
       { to: '/sales', label: t('nav_sales') },
       { to: '/payments', label: t('nav_payments') },
-      { to: '/expenses', label: t('expenses') },
     ],
     warehouse: [
       { to: '/', label: t('nav_dashboard') },

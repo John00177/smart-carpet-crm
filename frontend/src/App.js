@@ -37,12 +37,14 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-      <Route path="/products" element={<PrivateRoute roles={['admin', 'warehouse']}><Products /></PrivateRoute>} />
+      {/* Catalogue is warehouse-only; the owner has no use for it. */}
+      <Route path="/products" element={<PrivateRoute roles={['warehouse']}><Products /></PrivateRoute>} />
       <Route path="/transfers" element={<PrivateRoute roles={['admin', 'warehouse']}><Transfers /></PrivateRoute>} />
       <Route path="/purchases" element={<PrivateRoute roles={['admin', 'warehouse']}><Purchases /></PrivateRoute>} />
       <Route path="/sales" element={<PrivateRoute roles={['admin', 'branch']}><Sales /></PrivateRoute>} />
       <Route path="/payments" element={<PrivateRoute roles={['admin', 'branch']}><Payments /></PrivateRoute>} />
-      <Route path="/expenses" element={<PrivateRoute roles={['admin', 'branch']}><Expenses /></PrivateRoute>} />
+      {/* Expenses are private to each branch — the owner must not see them. */}
+      <Route path="/expenses" element={<PrivateRoute roles={['branch']}><Expenses /></PrivateRoute>} />
       <Route path="/branch/expenses" element={<PrivateRoute roles={['branch']}><Expenses /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -7,6 +7,7 @@ router.get('/', authenticate, authorize('admin', 'warehouse'), stockController.l
 router.get('/total/value', authenticate, authorize('admin', 'warehouse'), stockController.totalValue);
 router.get('/central/value', authenticate, authorize('admin', 'warehouse'), stockController.centralValue);
 router.get('/branches/value', authenticate, authorize('admin', 'warehouse'), stockController.branchesValue);
+router.get('/meters/:warehouseId', authenticate, stockController.metersByWarehouse);
 router.get('/warehouse/:id', authenticate, stockController.byWarehouse);
 router.get('/value/:id', authenticate, stockController.valueByWarehouse);
 

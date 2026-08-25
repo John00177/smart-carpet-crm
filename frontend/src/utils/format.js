@@ -29,6 +29,21 @@ export function formatQty(value) {
   return Math.round(num).toLocaleString('en-US');
 }
 
+/**
+ * Metres and fractional piece counts: keep up to 2 decimals but drop
+ * trailing zeros, so 240 -> "240" and 2.08 -> "2.08".
+ */
+export function formatMeters(value) {
+  const num = Number(value);
+  if (!isFinite(num)) return '0';
+  const rounded = Math.round(num * 100) / 100;
+  const isWhole = Math.abs(rounded % 1) < 1e-9;
+  return rounded.toLocaleString('en-US', {
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: isWhole ? 0 : 2,
+  });
+}
+
 /** Compact money for chart axis labels: 1500 -> "$1.5k", 25000 -> "$25k" */
 export function formatMoneyCompact(value) {
   const num = Number(value) || 0;

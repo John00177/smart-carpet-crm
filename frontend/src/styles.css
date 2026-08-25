@@ -1376,6 +1376,44 @@ tr:hover td { background: var(--color-table-hover); }
 .donut-legend-pct { font-weight: 600; color: var(--color-heading); }
 .donut-legend-amt { color: var(--color-text-muted); min-width: 62px; text-align: right; }
 
+/* ============================================================
+   Meter tracking
+   ============================================================ */
+
+.field-hint {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.field-hint.danger { color: var(--color-danger); font-weight: 600; }
+
+.unit {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  letter-spacing: 0;
+}
+
+.cell-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.transfer-item-block {
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-control);
+  padding: 14px;
+  margin-bottom: 12px;
+  background: var(--color-table-hover);
+}
+
+.transfer-item-block .transfer-items-row { margin-bottom: 12px; }
+.transfer-item-block .form-group:last-child { margin-bottom: 0; }
+
 @media (max-width: 1000px) {
   .exec-split, .branch-split { grid-template-columns: 1fr; }
 }

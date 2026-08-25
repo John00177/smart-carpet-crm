@@ -220,6 +220,20 @@ export const translations = {
     actions: 'Amallar',
     entries: 'ta yozuv',
     days_short: 'kun',
+
+    // Meters
+    meters: 'Metr',
+    meters_per_piece: '1 dona necha metr',
+    meters_per_piece_hint: 'Masalan, gilam 4x5m bo’lsa — 20 kiriting',
+    pieces: 'Dona',
+    meters_sold: 'Sotilgan metr',
+    meters_in_stock: 'Ombordagi metr',
+    total_meters: 'Jami metr',
+    approx_pieces: 'Tahminan dona',
+    insufficient_meters: 'Omborda yetarli metr yo’q',
+    meters_to_transfer: 'O’tkaziladigan metr',
+    price_per_meter: '1 metr narxi',
+    available: 'mavjud',
   },
   ru: {
     app_name: 'Smart Carpet CRM',
@@ -432,5 +446,19 @@ export const translations = {
     actions: 'Действия',
     entries: 'записей',
     days_short: 'дн.',
+
+    // Meters
+    meters: 'Метров',
+    meters_per_piece: 'Метров в штуке',
+    meters_per_piece_hint: 'Например, ковёр 4x5м — введите 20',
+    pieces: 'Штук',
+    meters_sold: 'Продано метров',
+    meters_in_stock: 'Метров на складе',
+    total_meters: 'Всего метров',
+    approx_pieces: 'Примерно штук',
+    insufficient_meters: 'Недостаточно метров на складе',
+    meters_to_transfer: 'Метров к передаче',
+    price_per_meter: 'Цена за метр',
+    available: 'доступно',
   },
 };

@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const { Purchase, Stock, Warehouse, Product, User } = require('../models');
 const sequelize = require('../config/database');
 const { todayStr, rangeFromQuery, dateWhere } = require('../utils/date');
+const { metersFromPieces, applyStockDelta } = require('../utils/meters');
 
 exports.list = async (req, res) => {
   try {
@@ -31,10 +32,12 @@ exports.create = async (req, res) => {
       return res.status(404).json({ error: 'Product not found' });
     }
     const total_cost = quantity * unit_cost;
+    const meter_quantity = metersFromPieces(quantity, product);
 
     const purchase = await Purchase.create({
       product_id,
       quantity,
+      meter_quantity,
       unit_cost,
       total_cost,
       currency: currency || 'USD',
@@ -50,12 +53,13 @@ exports.create = async (req, res) => {
       return res.status(500).json({ error: 'Central warehouse not configured' });
     }
 
-    const [stockRow] = await Stock.findOrCreate({
-      where: { warehouse_id: central.id, product_id },
-      defaults: { quantity: 0 },
+    await applyStockDelta({
+      warehouseId: central.id,
+      productId: product_id,
+      meterDelta: meter_quantity,
+      product,
       transaction: t,
     });
-    await stockRow.increment('quantity', { by: quantity, transaction: t });
 
     await t.commit();
     res.status(201).json(purchase);

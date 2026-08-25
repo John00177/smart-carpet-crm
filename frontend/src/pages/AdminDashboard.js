@@ -4,7 +4,7 @@ import DateFilterBar from '../components/DateFilterBar';
 import { SkeletonCards, SkeletonTable, EmptyState } from '../components/Skeleton';
 import { BarChart, ProportionBar } from '../components/Charts';
 import api from '../services/api';
-import { formatMoney, formatQty, dateStr } from '../utils/format';
+import { formatMoney, formatQty, formatMeters, dateStr } from '../utils/format';
 import { defaultRange } from '../utils/dateRange';
 import { shortMonth } from '../constants/months';
 import { useLang } from '../context/LangContext';
@@ -16,7 +16,6 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sortDesc, setSortDesc] = useState(true);
-  const [profitDesc, setProfitDesc] = useState(true);
   const [expanded, setExpanded] = useState(null);
 
   const load = useCallback(() => {
@@ -34,9 +33,6 @@ export default function AdminDashboard() {
     ? [...data.branch_debts].sort((a, b) => (sortDesc ? b.debt - a.debt : a.debt - b.debt))
     : [];
 
-  const profitability = data && data.branch_profitability
-    ? [...data.branch_profitability].sort((a, b) => (profitDesc ? b.net - a.net : a.net - b.net))
-    : [];
 
   const chartData = data
     ? data.cash_flow_series.flatMap((p) => ([
@@ -57,7 +53,7 @@ export default function AdminDashboard() {
       {loading && !data ? <SkeletonCards count={4} tall /> : data && (
         <div className="cards-grid exec-stats">
           <StatCard icon="💰" label={t('total_stock_cost')} value={formatMoney(data.total_cost_value)}
-            sub={`${formatQty(data.total_carpets)} ${t('carpets')}`} />
+            sub={`${formatMeters(data.total_meters)} ${t('meters')} · ${formatQty(data.total_carpets)} ${t('pieces')}`} />
           <StatCard icon="📈" label={t('total_stock_sell')} value={formatMoney(data.total_sell_value)} />
           <StatCard icon="🏦" label={t('total_branch_debt')} value={formatMoney(data.total_branch_debt)} tone="gold" />
           <StatCard icon="📊" label={t('potential_profit')} value={formatMoney(data.potential_profit)} tone="green" />
@@ -74,14 +70,14 @@ export default function AdminDashboard() {
             <div className="dist-row">
               <div className="dist-name">{t('central_warehouse')}</div>
               <div className="dist-nums">
-                <span>{formatQty(data.central_carpets)} {t('carpets')}</span>
+                <span>{formatMeters(data.central_meters)} {t('meters')} · {formatQty(data.central_carpets)} {t('pieces')}</span>
                 <strong>{formatMoney(data.central_sell_value)}</strong>
               </div>
             </div>
             <div className="dist-row">
               <div className="dist-name">{t('branch_warehouses')}</div>
               <div className="dist-nums">
-                <span>{formatQty(data.branch_carpets)} {t('carpets')}</span>
+                <span>{formatMeters(data.branch_meters)} {t('meters')} · {formatQty(data.branch_carpets)} {t('pieces')}</span>
                 <strong>{formatMoney(data.branch_sell_value)}</strong>
               </div>
             </div>
@@ -196,51 +192,17 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {data && data.branch_profitability && (
-        <div className="section">
-          <div className="section-title">{t('branch_profitability')}</div>
-          <div className="table-wrap">
-            <table className="premium-table">
-              <thead>
-                <tr>
-                  <th>{t('branch')}</th>
-                  <th>{t('revenue')}</th>
-                  <th>{t('expenses')}</th>
-                  <th className="sortable" onClick={() => setProfitDesc((s) => !s)}>
-                    {t('net_profit')} {profitDesc ? '↓' : '↑'}
-                  </th>
-                  <th>{t('profit_margin')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {profitability.map((b) => (
-                  <tr key={b.id}>
-                    <td>{b.name}</td>
-                    <td>{formatMoney(b.revenue)}</td>
-                    <td className={b.expenses > 0 ? 'neg' : ''}>{formatMoney(b.expenses)}</td>
-                    <td className={b.net >= 0 ? 'pos' : 'neg'}>{formatMoney(b.net)}</td>
-                    <td className={b.margin >= 0 ? 'pos' : 'neg'}>{b.revenue > 0 ? `${b.margin}%` : '—'}</td>
-                  </tr>
-                ))}
-                {profitability.length === 0 && (
-                  <tr><td colSpan={5}><EmptyState icon="📊" text={t('no_data')} /></td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {data && (
         <div className="section">
           <div className="section-title">{t('movement_summary')}</div>
           <div className="cards-grid">
-            <MiniStat label={t('transfers_out')} main={formatQty(data.range.transfers_out_qty)}
+            <MiniStat label={t('transfers_out')} main={`${formatMeters(data.range.transfers_out_meters)} ${t('meters').toLowerCase()}`}
               sub={`${formatMoney(data.range.transfers_out_value)} ${t('cost_value')}`} />
-            <MiniStat label={t('purchases_in')} main={formatQty(data.range.purchases_in_qty)}
+            <MiniStat label={t('purchases_in')} main={`${formatQty(data.range.purchases_in_qty)} ${t('pieces').toLowerCase()}`}
               sub={formatMoney(data.range.purchases_in_value)} />
             <MiniStat label={t('branch_sales_total')} main={formatMoney(data.range.branch_sales)}
-              sub={`${formatQty(data.range.branch_sales_qty)} ${t('carpets')}`} />
+              sub={`${formatMeters(data.range.sales_meters)} ${t('meters').toLowerCase()}`} />
           </div>
         </div>
       )}

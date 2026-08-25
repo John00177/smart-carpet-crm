@@ -6,7 +6,7 @@ import DateFilterBar from '../components/DateFilterBar';
 import { SkeletonCards, SkeletonTable, EmptyState } from '../components/Skeleton';
 import { BarChart } from '../components/Charts';
 import api from '../services/api';
-import { formatMoney, formatQty, dateStr } from '../utils/format';
+import { formatMoney, formatMeters, dateStr } from '../utils/format';
 import { defaultRange } from '../utils/dateRange';
 import { shortMonth } from '../constants/months';
 import { useLang } from '../context/LangContext';
@@ -68,9 +68,13 @@ export default function BranchDashboard() {
           <div className="cards-grid">
             <div className="card branch-stat">
               <div className="stat-icon" aria-hidden="true">🏪</div>
-              <div className="label">{t('my_stock')}</div>
-              <div className="stat-value">{formatQty(data.stock.total_qty)}</div>
-              <div className="sub">{formatMoney(data.stock.sell_value)} {t('stock_worth')}</div>
+              <div className="label">{t('meters_in_stock')}</div>
+              <div className="stat-value">
+                {formatMeters(data.stock.total_meters)} <span className="unit">{t('meters').toLowerCase()}</span>
+              </div>
+              <div className="sub">
+                ≈ {formatMeters(data.stock.total_qty)} {t('pieces').toLowerCase()} · {formatMoney(data.stock.sell_value)} {t('stock_worth')}
+              </div>
             </div>
 
             <div className="card branch-stat warm">
@@ -86,7 +90,7 @@ export default function BranchDashboard() {
               <div className="stat-icon" aria-hidden="true">💵</div>
               <div className="label">{t('my_sales_period')}</div>
               <div className="stat-value green">{formatMoney(data.range.sales_amount)}</div>
-              <div className="sub">{formatQty(data.range.sales_qty)} {t('carpets')}</div>
+              <div className="sub">{formatMeters(data.range.sales_meters)} {t('meters').toLowerCase()}</div>
             </div>
 
             <div
@@ -123,7 +127,7 @@ export default function BranchDashboard() {
                   <thead>
                     <tr>
                       <th>{t('product')}</th><th>{t('size')}</th><th>{t('color')}</th>
-                      <th>{t('qty')}</th><th>{t('sell')}</th>
+                      <th>{t('meters')}</th><th>{t('sell')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -135,7 +139,10 @@ export default function BranchDashboard() {
                           <span className="swatch" style={{ background: swatchFor(s.color) }} />
                           {s.color}
                         </td>
-                        <td>{formatQty(s.quantity)}</td>
+                        <td>
+                          <strong>{formatMeters(s.meter_quantity)}</strong>
+                          <span className="cell-sub">≈ {formatMeters(s.quantity)} {t('pieces').toLowerCase()}</span>
+                        </td>
                         <td>{formatMoney(s.sell_value)}</td>
                       </tr>
                     ))}
@@ -158,9 +165,9 @@ export default function BranchDashboard() {
                       <span className={`timeline-dot ${a.type}`} />
                       <div className="timeline-body">
                         <div className="timeline-text">
-                          {a.type === 'transfer' && `${t('activity_received')} · ${formatQty(a.qty)} ${t('carpets')}`}
+                          {a.type === 'transfer' && `${t('activity_received')} · ${formatMeters(a.meters)} ${t('meters').toLowerCase()}`}
                           {a.type === 'payment' && `${t('activity_paid')} · ${formatMoney(a.value)}`}
-                          {a.type === 'sale' && `${t('activity_sold')} · ${formatQty(a.qty)} × ${a.product ? (lang === 'ru' ? a.product.name_ru : a.product.name_uz) : ''}`}
+                          {a.type === 'sale' && `${t('activity_sold')} · ${formatMeters(a.meters)} ${t('meters').toLowerCase()} × ${a.product ? (lang === 'ru' ? a.product.name_ru : a.product.name_uz) : ''}`}
                         </div>
                         <div className="timeline-meta">
                           {dateStr(a.date)}
@@ -183,7 +190,13 @@ export default function BranchDashboard() {
 
       {loading && !data && <SkeletonTable rows={5} cols={5} />}
 
-      {showSale && <SaleModal onClose={() => setShowSale(false)} onSaved={() => { setShowSale(false); load(); }} />}
+      {showSale && (
+        <SaleModal
+          stockItems={data ? data.stock_items : []}
+          onClose={() => setShowSale(false)}
+          onSaved={() => { setShowSale(false); load(); }}
+        />
+      )}
       {showPayment && <PaymentModal onClose={() => setShowPayment(false)} onSaved={() => { setShowPayment(false); load(); }} />}
     </Layout>
   );
@@ -194,41 +207,63 @@ function bucketLabel(key, mode, lang) {
   return String(Number(key.slice(8, 10)));
 }
 
-function SaleModal({ onClose, onSaved }) {
+function SaleModal({ stockItems, onClose, onSaved }) {
   const { t, lang } = useLang();
   const [products, setProducts] = useState([]);
-  const [form, setForm] = useState({ product_id: '', quantity: '', sell_price: '', customer_name: '', notes: '' });
+  const [form, setForm] = useState({ product_id: '', meter_quantity: '', sell_price: '', customer_name: '', notes: '' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { api.get('/products').then((res) => setProducts(res.data)); }, []);
 
+  const selected = products.find((p) => String(p.id) === String(form.product_id));
+  const mpp = selected ? Number(selected.meters_per_piece) || 1 : null;
+  const inStock = stockItems.find((s) => String(s.id) === String(form.product_id));
+  const availableMeters = inStock ? Number(inStock.meter_quantity) : 0;
+
+  const meters = Number(form.meter_quantity) || 0;
+  const approxPieces = mpp ? meters / mpp : 0;
+  // sell_price is per metre, so the customer total is metres x price.
+  const total = meters * (Number(form.sell_price) || 0);
+  const overStock = meters > availableMeters;
+
   function onProductChange(id) {
     const p = products.find((x) => String(x.id) === String(id));
-    setForm({ ...form, product_id: id, sell_price: p ? p.retail_price : form.sell_price });
+    // Retail price is quoted per piece, so convert it to a per-metre default.
+    const perMeter = p && Number(p.meters_per_piece) > 0
+      ? Math.round((Number(p.retail_price) / Number(p.meters_per_piece)) * 100) / 100
+      : (p ? p.retail_price : '');
+    setForm({ ...form, product_id: id, sell_price: perMeter });
   }
-
-  const total = Number(form.quantity) * Number(form.sell_price);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (!form.product_id || !form.quantity || !form.sell_price) {
+    if (!form.product_id || !form.meter_quantity || !form.sell_price) {
       setError(t('all_fields_required'));
+      return;
+    }
+    if (overStock) {
+      setError(t('insufficient_meters'));
       return;
     }
     setSaving(true);
     try {
       await api.post('/sales', {
         product_id: Number(form.product_id),
-        quantity: Number(form.quantity),
+        meter_quantity: meters,
         sell_price: Number(form.sell_price),
         customer_name: form.customer_name,
         notes: form.notes,
       });
       onSaved();
     } catch (err) {
-      setError(err.response?.data?.error || t('failed_to_save'));
+      const data = err.response?.data;
+      if (data?.error === 'INSUFFICIENT_METERS') {
+        setError(`${t('insufficient_meters')} (${formatMeters(data.available_meters)} ${t('available')})`);
+      } else {
+        setError(data?.error || t('failed_to_save'));
+      }
     } finally {
       setSaving(false);
     }
@@ -249,11 +284,18 @@ function SaleModal({ onClose, onSaved }) {
           </select>
         </div>
         <div className="form-group">
-          <label>{t('quantity')}</label>
-          <input type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+          <label>{t('meters_sold')}</label>
+          <input type="number" min="0.01" step="0.01" value={form.meter_quantity}
+            onChange={(e) => setForm({ ...form, meter_quantity: e.target.value })} />
+          {form.product_id && (
+            <div className={`field-hint${overStock ? ' danger' : ''}`}>
+              {formatMeters(availableMeters)} {t('meters').toLowerCase()} {t('available')}
+              {meters > 0 && mpp ? ` · ${t('approx_pieces')}: ${formatMeters(approxPieces)}` : ''}
+            </div>
+          )}
         </div>
         <div className="form-group">
-          <label>{t('sell_price_unit')}</label>
+          <label>{t('price_per_meter')}</label>
           <input type="number" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} />
         </div>
         {total > 0 && (

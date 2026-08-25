@@ -25,16 +25,16 @@ const warehouses = [
 ];
 
 const products = [
-  { name_uz: 'Guliston', name_ru: 'Гулистан', size: '2x3m', color: 'Red', cost_price: 50, sell_price: 75, retail_price: 100 },
-  { name_uz: 'Buxoro', name_ru: 'Бухара', size: '3x4m', color: 'Blue', cost_price: 80, sell_price: 120, retail_price: 160 },
-  { name_uz: 'Samarqand', name_ru: 'Самарканд', size: '2x3m', color: 'Green', cost_price: 60, sell_price: 90, retail_price: 120 },
-  { name_uz: 'Xiva', name_ru: 'Хива', size: '4x6m', color: 'Red', cost_price: 120, sell_price: 180, retail_price: 240 },
-  { name_uz: 'Qashqadaryo', name_ru: 'Кашкадарья', size: '3x4m', color: 'Beige', cost_price: 70, sell_price: 105, retail_price: 140 },
-  { name_uz: "Farg'ona", name_ru: 'Фергана', size: '2x3m', color: 'Brown', cost_price: 55, sell_price: 82, retail_price: 110 },
-  { name_uz: 'Andijon', name_ru: 'Андижан', size: '3x5m', color: 'Gold', cost_price: 90, sell_price: 135, retail_price: 180 },
-  { name_uz: 'Namangan', name_ru: 'Наманган', size: '2x2m', color: 'Blue', cost_price: 40, sell_price: 60, retail_price: 80 },
-  { name_uz: 'Surxondaryo', name_ru: 'Сурхандарья', size: '4x4m', color: 'Red', cost_price: 100, sell_price: 150, retail_price: 200 },
-  { name_uz: 'Jizzax', name_ru: 'Джизак', size: '2x3m', color: 'Green', cost_price: 45, sell_price: 67, retail_price: 90 },
+  { name_uz: 'Guliston', name_ru: 'Гулистан', size: '2x3m', color: 'Red', cost_price: 50, sell_price: 75, retail_price: 100, meters_per_piece: 6 },
+  { name_uz: 'Buxoro', name_ru: 'Бухара', size: '3x4m', color: 'Blue', cost_price: 80, sell_price: 120, retail_price: 160, meters_per_piece: 12 },
+  { name_uz: 'Samarqand', name_ru: 'Самарканд', size: '2x3m', color: 'Green', cost_price: 60, sell_price: 90, retail_price: 120, meters_per_piece: 6 },
+  { name_uz: 'Xiva', name_ru: 'Хива', size: '4x6m', color: 'Red', cost_price: 120, sell_price: 180, retail_price: 240, meters_per_piece: 24 },
+  { name_uz: 'Qashqadaryo', name_ru: 'Кашкадарья', size: '3x4m', color: 'Beige', cost_price: 70, sell_price: 105, retail_price: 140, meters_per_piece: 12 },
+  { name_uz: "Farg'ona", name_ru: 'Фергана', size: '2x3m', color: 'Brown', cost_price: 55, sell_price: 82, retail_price: 110, meters_per_piece: 6 },
+  { name_uz: 'Andijon', name_ru: 'Андижан', size: '3x5m', color: 'Gold', cost_price: 90, sell_price: 135, retail_price: 180, meters_per_piece: 15 },
+  { name_uz: 'Namangan', name_ru: 'Наманган', size: '2x2m', color: 'Blue', cost_price: 40, sell_price: 60, retail_price: 80, meters_per_piece: 4 },
+  { name_uz: 'Surxondaryo', name_ru: 'Сурхандарья', size: '4x4m', color: 'Red', cost_price: 100, sell_price: 150, retail_price: 200, meters_per_piece: 16 },
+  { name_uz: 'Jizzax', name_ru: 'Джизак', size: '2x3m', color: 'Green', cost_price: 45, sell_price: 67, retail_price: 90, meters_per_piece: 6 },
 ];
 
 async function seed() {

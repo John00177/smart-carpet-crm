@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const { BranchSale, Stock, Warehouse, Product } = require('../models');
 const sequelize = require('../config/database');
 const { todayStr, rangeFromQuery, dateWhere } = require('../utils/date');
+const { metersFromPieces, piecesFromMeters, applyStockDelta, round2 } = require('../utils/meters');
 
 async function findBranchWarehouse(branchId, t) {
   return Warehouse.findOne({ where: { type: 'branch', branch_id: branchId }, transaction: t });
@@ -45,10 +46,23 @@ exports.create = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const branch_id = req.user.branch_id;
-    const { product_id, quantity, sell_price, currency, sale_date, customer_name, notes } = req.body;
-    if (!product_id || !quantity || quantity <= 0 || sell_price == null) {
+    const { product_id, sell_price, currency, sale_date, customer_name, notes } = req.body;
+
+    const product = await Product.findByPk(product_id, { transaction: t });
+    if (!product) {
       await t.rollback();
-      return res.status(400).json({ error: 'product_id, quantity, sell_price are required' });
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Metres are the primary unit a branch sells in. `quantity` (pieces) is
+    // accepted only as a fallback for older clients.
+    const meters = req.body.meter_quantity != null && req.body.meter_quantity !== ''
+      ? Number(req.body.meter_quantity)
+      : metersFromPieces(Number(req.body.quantity), product);
+
+    if (!product_id || !isFinite(meters) || meters <= 0 || sell_price == null) {
+      await t.rollback();
+      return res.status(400).json({ error: 'product_id, meter_quantity and sell_price are required' });
     }
 
     const warehouse = await findBranchWarehouse(branch_id, t);
@@ -58,17 +72,25 @@ exports.create = async (req, res) => {
     }
 
     const stock = await Stock.findOne({ where: { warehouse_id: warehouse.id, product_id }, transaction: t });
-    if (!stock || stock.quantity < quantity) {
+    const availableMeters = stock ? parseFloat(stock.meter_quantity) : 0;
+    if (availableMeters < meters) {
       await t.rollback();
-      return res.status(400).json({ error: 'Insufficient stock for this sale' });
+      return res.status(400).json({
+        error: 'INSUFFICIENT_METERS',
+        available_meters: availableMeters,
+        requested_meters: meters,
+      });
     }
 
-    const total_amount = quantity * sell_price;
+    const pieces = piecesFromMeters(meters, product);
+    // sell_price is a per-metre price for metre-based sales.
+    const total_amount = round2(meters * Number(sell_price));
 
     const sale = await BranchSale.create({
       branch_id,
       product_id,
-      quantity,
+      quantity: pieces,
+      meter_quantity: meters,
       sell_price,
       total_amount,
       currency: currency || 'USD',
@@ -77,7 +99,13 @@ exports.create = async (req, res) => {
       notes,
     }, { transaction: t });
 
-    await stock.decrement('quantity', { by: quantity, transaction: t });
+    await applyStockDelta({
+      warehouseId: warehouse.id,
+      productId: product_id,
+      meterDelta: -meters,
+      product,
+      transaction: t,
+    });
 
     await t.commit();
     res.status(201).json(sale);
@@ -95,8 +123,9 @@ exports.dailyTotal = async (req, res) => {
     else if (req.user.role === 'branch') where.branch_id = req.user.branch_id;
     const sales = await BranchSale.findAll({ where });
     const total = sales.reduce((sum, s) => sum + parseFloat(s.total_amount), 0);
-    const qty = sales.reduce((sum, s) => sum + s.quantity, 0);
-    res.json({ date, total_amount: total, quantity: qty, count: sales.length });
+    const qty = sales.reduce((sum, s) => sum + parseFloat(s.quantity), 0);
+    const meters = sales.reduce((sum, s) => sum + parseFloat(s.meter_quantity || 0), 0);
+    res.json({ date, total_amount: total, quantity: qty, meter_quantity: meters, count: sales.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -111,8 +140,9 @@ exports.periodTotal = async (req, res) => {
     else if (req.user.role === 'branch') where.branch_id = req.user.branch_id;
     const sales = await BranchSale.findAll({ where });
     const total = sales.reduce((sum, s) => sum + parseFloat(s.total_amount), 0);
-    const qty = sales.reduce((sum, s) => sum + s.quantity, 0);
-    res.json({ startDate, endDate, total_amount: total, quantity: qty, count: sales.length });
+    const qty = sales.reduce((sum, s) => sum + parseFloat(s.quantity), 0);
+    const meters = sales.reduce((sum, s) => sum + parseFloat(s.meter_quantity || 0), 0);
+    res.json({ startDate, endDate, total_amount: total, quantity: qty, meter_quantity: meters, count: sales.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

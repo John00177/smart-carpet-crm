@@ -3,6 +3,8 @@ const {
 } = require('../models');
 const { computeBranchDebt } = require('./paymentController');
 const { branchProfitability } = require('./expenseController');
+const { aggregate } = require('./stockController');
+const { valueOf } = require('../utils/meters');
 const {
   todayStr, daysAgoStr, monthStartStr, localDateStr, rangeFromQuery, dateWhere,
 } = require('../utils/date');
@@ -10,13 +12,8 @@ const {
 async function stockTotals(warehouseIds) {
   const where = warehouseIds ? { warehouse_id: warehouseIds } : {};
   const stock = await Stock.findAll({ where, include: [Product] });
-  let qty = 0, cost = 0, sell = 0;
-  for (const row of stock) {
-    qty += row.quantity;
-    cost += row.quantity * parseFloat(row.Product.cost_price);
-    sell += row.quantity * parseFloat(row.Product.sell_price);
-  }
-  return { qty, cost, sell };
+  const agg = aggregate(stock);
+  return { qty: agg.quantity, meters: agg.meter_quantity, cost: agg.cost_value, sell: agg.sell_value };
 }
 
 async function incomeOutcome(startDate, endDate) {
@@ -75,7 +72,9 @@ exports.adminDashboard = async (req, res) => {
 
     // Stock is a point-in-time snapshot — never date filtered.
     const totals = await stockTotals(null);
-    const centralTotals = central ? await stockTotals([central.id]) : { qty: 0, cost: 0, sell: 0 };
+    const centralTotals = central
+      ? await stockTotals([central.id])
+      : { qty: 0, meters: 0, cost: 0, sell: 0 };
     const branchTotals = await stockTotals(branchIds);
 
     const today = todayStr();
@@ -109,12 +108,14 @@ exports.adminDashboard = async (req, res) => {
       income: range_income,
       outcome: range_outcome,
       net: range_income - range_outcome,
-      transfers_out_qty: rangeTransferItems.reduce((s, i) => s + i.quantity, 0),
+      transfers_out_qty: rangeTransferItems.reduce((s, i) => s + parseFloat(i.quantity), 0),
+      transfers_out_meters: rangeTransferItems.reduce((s, i) => s + parseFloat(i.meter_quantity || 0), 0),
       transfers_out_value: rangeTransfers.reduce((s, t) => s + parseFloat(t.total_cost), 0),
       purchases_in_qty: rangePurchases.reduce((s, p) => s + p.quantity, 0),
       purchases_in_value: range_outcome,
       branch_sales: rangeSales.reduce((s, x) => s + parseFloat(x.total_amount), 0),
-      branch_sales_qty: rangeSales.reduce((s, x) => s + x.quantity, 0),
+      branch_sales_qty: rangeSales.reduce((s, x) => s + parseFloat(x.quantity), 0),
+      sales_meters: rangeSales.reduce((s, x) => s + parseFloat(x.meter_quantity || 0), 0),
     };
 
     // Cash-flow chart series over the range.
@@ -179,13 +180,16 @@ exports.adminDashboard = async (req, res) => {
 
     res.json({
       total_carpets: totals.qty,
+      total_meters: totals.meters,
       total_cost_value: totals.cost,
       total_sell_value: totals.sell,
       potential_profit: totals.sell - totals.cost,
       central_carpets: centralTotals.qty,
+      central_meters: centralTotals.meters,
       central_cost_value: centralTotals.cost,
       central_sell_value: centralTotals.sell,
       branch_carpets: branchTotals.qty,
+      branch_meters: branchTotals.meters,
       branch_cost_value: branchTotals.cost,
       branch_sell_value: branchTotals.sell,
       total_branch_debt,
@@ -233,7 +237,8 @@ exports.branchDashboard = async (req, res) => {
       });
       return {
         amount: sales.reduce((s, x) => s + parseFloat(x.total_amount), 0),
-        qty: sales.reduce((s, x) => s + x.quantity, 0),
+        qty: sales.reduce((s, x) => s + parseFloat(x.quantity), 0),
+        meters: sales.reduce((s, x) => s + parseFloat(x.meter_quantity || 0), 0),
       };
     }
 
@@ -270,10 +275,11 @@ exports.branchDashboard = async (req, res) => {
       expenses_count: rangeExpenses.length,
       net_profit: sales_amount_total - expenses_amount,
       sales_amount: sales_amount_total,
-      sales_qty: rangeSales.reduce((s, x) => s + x.quantity, 0),
+      sales_qty: rangeSales.reduce((s, x) => s + parseFloat(x.quantity), 0),
+      sales_meters: rangeSales.reduce((s, x) => s + parseFloat(x.meter_quantity || 0), 0),
       payments_amount: rangePayments.reduce((s, p) => s + parseFloat(p.amount), 0),
       received_qty: rangeTransfers.reduce(
-        (s, tr) => s + (tr.items || []).reduce((a, i) => a + i.quantity, 0), 0,
+        (s, tr) => s + (tr.items || []).reduce((a, i) => a + parseFloat(i.quantity), 0), 0,
       ),
       received_value: rangeTransfers.reduce((s, tr) => s + parseFloat(tr.total_sell_value), 0),
     };
@@ -295,7 +301,8 @@ exports.branchDashboard = async (req, res) => {
         date: tr.transfer_date,
         id: `t${tr.id}`,
         value: parseFloat(tr.total_sell_value),
-        qty: (tr.items || []).reduce((a, i) => a + i.quantity, 0),
+        qty: (tr.items || []).reduce((a, i) => a + parseFloat(i.quantity), 0),
+        meters: (tr.items || []).reduce((a, i) => a + parseFloat(i.meter_quantity || 0), 0),
       })),
       ...rangePayments.map((p) => ({
         type: 'payment',
@@ -308,7 +315,8 @@ exports.branchDashboard = async (req, res) => {
         date: s.sale_date,
         id: `s${s.id}`,
         value: parseFloat(s.total_amount),
-        qty: s.quantity,
+        qty: parseFloat(s.quantity),
+        meters: parseFloat(s.meter_quantity || 0),
         product: s.Product ? { name_uz: s.Product.name_uz, name_ru: s.Product.name_ru } : null,
       })),
     ].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 20);
@@ -319,17 +327,22 @@ exports.branchDashboard = async (req, res) => {
       include: [Product],
     });
     const stock_items = stockRows
-      .filter((s) => s.quantity > 0)
-      .map((s) => ({
-        id: s.Product.id,
-        name_uz: s.Product.name_uz,
-        name_ru: s.Product.name_ru,
-        size: s.Product.size,
-        color: s.Product.color,
-        quantity: s.quantity,
-        cost_value: s.quantity * parseFloat(s.Product.cost_price),
-        sell_value: s.quantity * parseFloat(s.Product.sell_price),
-      }));
+      .filter((s) => s.Product && parseFloat(s.meter_quantity) > 0)
+      .map((s) => {
+        const v = valueOf(s.meter_quantity, s.Product);
+        return {
+          id: s.Product.id,
+          name_uz: s.Product.name_uz,
+          name_ru: s.Product.name_ru,
+          size: s.Product.size,
+          color: s.Product.color,
+          meters_per_piece: s.Product.meters_per_piece,
+          meter_quantity: v.meters,
+          quantity: v.pieces,
+          cost_value: v.cost,
+          sell_value: v.sell,
+        };
+      });
 
     const recent_transfers = await Transfer.findAll({
       where: { to_warehouse_id: warehouse.id },
@@ -346,7 +359,12 @@ exports.branchDashboard = async (req, res) => {
 
     res.json({
       warehouse: { id: warehouse.id, name: warehouse.name },
-      stock: { total_qty: stockTot.qty, cost_value: stockTot.cost, sell_value: stockTot.sell },
+      stock: {
+        total_qty: stockTot.qty,
+        total_meters: stockTot.meters,
+        cost_value: stockTot.cost,
+        sell_value: stockTot.sell,
+      },
       stock_items,
       debt,
       range,
@@ -368,16 +386,23 @@ exports.warehouseDashboard = async (req, res) => {
     const central = await Warehouse.findOne({ where: { type: 'central' } });
 
     const central_stock = central
-      ? (await Stock.findAll({ where: { warehouse_id: central.id }, include: [Product] })).map((s) => ({
-        id: s.Product.id,
-        name_uz: s.Product.name_uz,
-        name_ru: s.Product.name_ru,
-        size: s.Product.size,
-        color: s.Product.color,
-        cost_price: s.Product.cost_price,
-        sell_price: s.Product.sell_price,
-        quantity: s.quantity,
-      }))
+      ? (await Stock.findAll({ where: { warehouse_id: central.id }, include: [Product] }))
+        .filter((s) => s.Product)
+        .map((s) => {
+          const v = valueOf(s.meter_quantity, s.Product);
+          return {
+            id: s.Product.id,
+            name_uz: s.Product.name_uz,
+            name_ru: s.Product.name_ru,
+            size: s.Product.size,
+            color: s.Product.color,
+            cost_price: s.Product.cost_price,
+            sell_price: s.Product.sell_price,
+            meters_per_piece: s.Product.meters_per_piece,
+            quantity: v.pieces,
+            meter_quantity: v.meters,
+          };
+        })
       : [];
 
     const transfers = await Transfer.findAll({
@@ -401,7 +426,10 @@ exports.warehouseDashboard = async (req, res) => {
     const warehouses = [];
     for (const w of allWarehouses) {
       const tot = await stockTotals([w.id]);
-      warehouses.push({ id: w.id, name: w.name, type: w.type, total_qty: tot.qty, cost_value: tot.cost });
+      warehouses.push({
+        id: w.id, name: w.name, type: w.type,
+        total_qty: tot.qty, total_meters: tot.meters, cost_value: tot.cost,
+      });
     }
 
     res.json({
