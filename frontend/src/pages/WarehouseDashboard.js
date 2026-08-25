@@ -1,124 +1,160 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Layout from '../components/Layout';
 import Modal from '../components/Modal';
+import DateFilterBar from '../components/DateFilterBar';
+import { SkeletonCards, SkeletonTable, EmptyState } from '../components/Skeleton';
 import api from '../services/api';
-import { money, qty } from '../utils/format';
+import { formatMoney, formatQty, dateStr } from '../utils/format';
+import { defaultRange } from '../utils/dateRange';
 import { useLang } from '../context/LangContext';
 
 export default function WarehouseDashboard() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const [filter, setFilter] = useState(defaultRange);
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showPurchase, setShowPurchase] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
 
-  function load() {
-    api.get('/dashboard/warehouse')
-      .then((res) => setData(res.data))
-      .catch((err) => setError(err.response?.data?.error || t('failed_to_load_dashboard')));
-  }
+  const load = useCallback(() => {
+    setLoading(true);
+    api.get('/dashboard/warehouse', { params: { startDate: filter.startDate, endDate: filter.endDate } })
+      .then((res) => { setData(res.data); setError(''); })
+      .catch((err) => setError(err.response?.data?.error || t('failed_to_load_dashboard')))
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter.startDate, filter.endDate]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, []);
+  useEffect(load, [load]);
 
-  if (error) return <Layout><div className="page-title">{t('warehouse_dashboard')}</div><div className="error-text">{error}</div></Layout>;
-  if (!data) return <Layout><div className="loading-wrap">{t('loading')}</div></Layout>;
+  const name = (p) => (lang === 'ru' ? p.name_ru : p.name_uz);
 
   return (
     <Layout>
       <div className="page-title">{t('warehouse_dashboard')}</div>
+      {error && <div className="error-text">{error}</div>}
 
-      <div className="cards-grid">
-        {data.warehouses.map((w) => (
-          <div className="card" key={w.id}>
-            <div className="label">{w.name}</div>
-            <div className="value">{qty(w.total_qty)}</div>
-            <div className="sub">{t('cost_value')} {money(w.cost_value)}</div>
-          </div>
-        ))}
-      </div>
+      {loading && !data ? <SkeletonCards count={6} /> : data && (
+        <div className="cards-grid">
+          {data.warehouses.map((w) => (
+            <div className="card" key={w.id}>
+              <div className="label">{w.name}</div>
+              <div className="value">{formatQty(w.total_qty)}</div>
+              <div className="sub">{t('cost_value')} {formatMoney(w.cost_value)}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="btn-row">
         <button className="btn" onClick={() => setShowPurchase(true)}>{t('record_purchase')}</button>
         <button className="btn secondary" onClick={() => setShowTransfer(true)}>{t('transfer_stock')}</button>
       </div>
 
-      <div className="section">
-        <div className="section-title">{t('central_stock_title')}</div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr><th>{t('name_uz')}</th><th>{t('name_ru')}</th><th>{t('size')}</th><th>{t('color')}</th><th>{t('cost')}</th><th>{t('sell')}</th><th>{t('qty')}</th></tr>
-            </thead>
-            <tbody>
-              {data.central_stock.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.name_uz}</td><td>{p.name_ru}</td><td>{p.size}</td><td>{p.color}</td>
-                  <td>{money(p.cost_price)}</td><td>{money(p.sell_price)}</td><td>{p.quantity}</td>
+      {data && (
+        <div className="section">
+          <div className="section-title">{t('central_stock_title')}</div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t('name_uz')}</th><th>{t('name_ru')}</th><th>{t('size')}</th><th>{t('color')}</th>
+                  <th>{t('cost')}</th><th>{t('sell')}</th><th>{t('qty')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.central_stock.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.name_uz}</td><td>{p.name_ru}</td><td>{p.size}</td><td>{p.color}</td>
+                    <td>{formatMoney(p.cost_price)}</td><td>{formatMoney(p.sell_price)}</td>
+                    <td>{formatQty(p.quantity)}</td>
+                  </tr>
+                ))}
+                {data.central_stock.length === 0 && (
+                  <tr><td colSpan={7}><EmptyState icon="📦" text={t('no_data')} /></td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="section">
-        <div className="section-title">{t('todays_transfers')}</div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr><th>{t('from')}</th><th>{t('to')}</th><th>{t('items')}</th><th>{t('cost_value')}</th><th>{t('by')}</th></tr>
-            </thead>
-            <tbody>
-              {data.today_transfers.map((tr) => (
-                <tr key={tr.id}>
-                  <td>{tr.fromWarehouse?.name}</td>
-                  <td>{tr.toWarehouse?.name}</td>
-                  <td>{tr.items?.map((i) => `${i.Product?.name_uz} x${i.quantity}`).join(', ')}</td>
-                  <td>{money(tr.total_cost)}</td>
-                  <td>{tr.creator?.name}</td>
-                </tr>
-              ))}
-              {data.today_transfers.length === 0 && <tr><td colSpan={5}>{t('no_transfers_today')}</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DateFilterBar value={filter} onChange={setFilter} />
 
-      <div className="section">
-        <div className="section-title">{t('todays_purchases')}</div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr><th>{t('product')}</th><th>{t('qty')}</th><th>{t('unit_cost')}</th><th>{t('total')}</th><th>{t('supplier')}</th><th>{t('by')}</th></tr>
-            </thead>
-            <tbody>
-              {data.today_purchases.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.Product?.name_uz}</td><td>{p.quantity}</td><td>{money(p.unit_cost)}</td>
-                  <td>{money(p.total_cost)}</td><td>{p.supplier || '-'}</td><td>{p.creator?.name}</td>
-                </tr>
-              ))}
-              {data.today_purchases.length === 0 && <tr><td colSpan={6}>{t('no_purchases_today')}</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {loading && !data ? <SkeletonTable rows={4} cols={5} /> : data && (
+        <>
+          <div className="section">
+            <div className="section-title">{t('nav_transfers')}</div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>{t('date')}</th><th>{t('from')}</th><th>{t('to')}</th><th>{t('items')}</th><th>{t('cost_value')}</th><th>{t('by')}</th></tr>
+                </thead>
+                <tbody>
+                  {data.transfers.map((tr) => (
+                    <tr key={tr.id}>
+                      <td>{dateStr(tr.transfer_date)}</td>
+                      <td>{tr.fromWarehouse?.name}</td>
+                      <td>{tr.toWarehouse?.name}</td>
+                      <td>{tr.items?.map((i) => `${i.Product ? name(i.Product) : ''} ×${i.quantity}`).join(', ')}</td>
+                      <td>{formatMoney(tr.total_cost)}</td>
+                      <td>{tr.creator?.name}</td>
+                    </tr>
+                  ))}
+                  {data.transfers.length === 0 && (
+                    <tr><td colSpan={6}><EmptyState icon="↔" text={t('no_transfers_yet')} /></td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="section">
+            <div className="section-title">{t('nav_purchases')}</div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>{t('date')}</th><th>{t('product')}</th><th>{t('qty')}</th><th>{t('unit_cost')}</th><th>{t('total')}</th><th>{t('supplier')}</th><th>{t('by')}</th></tr>
+                </thead>
+                <tbody>
+                  {data.purchases.map((p) => (
+                    <tr key={p.id}>
+                      <td>{dateStr(p.purchase_date)}</td>
+                      <td>{p.Product ? name(p.Product) : ''}</td>
+                      <td>{formatQty(p.quantity)}</td>
+                      <td>{formatMoney(p.unit_cost)}</td>
+                      <td>{formatMoney(p.total_cost)}</td>
+                      <td>{p.supplier || '-'}</td>
+                      <td>{p.creator?.name}</td>
+                    </tr>
+                  ))}
+                  {data.purchases.length === 0 && (
+                    <tr><td colSpan={7}><EmptyState icon="🧾" text={t('no_purchases_yet')} /></td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       {showPurchase && <PurchaseModal onClose={() => setShowPurchase(false)} onSaved={() => { setShowPurchase(false); load(); }} />}
-      {showTransfer && <TransferModal warehouses={data.warehouses} onClose={() => setShowTransfer(false)} onSaved={() => { setShowTransfer(false); load(); }} />}
+      {showTransfer && <TransferModal warehouses={data ? data.warehouses : []} onClose={() => setShowTransfer(false)} onSaved={() => { setShowTransfer(false); load(); }} />}
     </Layout>
   );
 }
 
 function PurchaseModal({ onClose, onSaved }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({ product_id: '', quantity: '', unit_cost: '', supplier: '', notes: '' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { api.get('/products').then((res) => setProducts(res.data)); }, []);
+
+  const total = Number(form.quantity) * Number(form.unit_cost);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -151,7 +187,11 @@ function PurchaseModal({ onClose, onSaved }) {
           <label>{t('product')}</label>
           <select value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })}>
             <option value="">{t('select')}</option>
-            {products.map((p) => <option key={p.id} value={p.id}>{p.name_uz} ({p.size}, {p.color})</option>)}
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>
+                {(lang === 'ru' ? p.name_ru : p.name_uz)} ({p.size}, {p.color})
+              </option>
+            ))}
           </select>
         </div>
         <div className="form-group">
@@ -162,6 +202,9 @@ function PurchaseModal({ onClose, onSaved }) {
           <label>{t('unit_cost')}</label>
           <input type="number" min="0" step="0.01" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} />
         </div>
+        {total > 0 && (
+          <div className="modal-total"><span>{t('total')}</span><strong>{formatMoney(total)}</strong></div>
+        )}
         <div className="form-group">
           <label>{t('supplier')}</label>
           <input type="text" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
@@ -181,7 +224,7 @@ function PurchaseModal({ onClose, onSaved }) {
 }
 
 function TransferModal({ warehouses, onClose, onSaved }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [products, setProducts] = useState([]);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -245,19 +288,21 @@ function TransferModal({ warehouses, onClose, onSaved }) {
             {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
         </div>
-        <label style={{ display: 'block', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, marginBottom: 7, color: 'var(--color-text-muted)' }}>{t('items')}</label>
+        <label className="group-label">{t('items')}</label>
         {items.map((item, idx) => (
           <div className="transfer-items-row" key={idx}>
             <div className="form-group">
               <select value={item.product_id} onChange={(e) => updateItem(idx, 'product_id', e.target.value)}>
                 <option value="">{t('product')}</option>
-                {products.map((p) => <option key={p.id} value={p.id}>{p.name_uz}</option>)}
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{lang === 'ru' ? p.name_ru : p.name_uz}</option>
+                ))}
               </select>
             </div>
             <div className="form-group">
               <input type="number" min="1" placeholder={t('qty')} value={item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value)} />
             </div>
-            {items.length > 1 && <button type="button" className="btn secondary" onClick={() => removeItem(idx)}>-</button>}
+            {items.length > 1 && <button type="button" className="btn secondary" onClick={() => removeItem(idx)}>−</button>}
           </div>
         ))}
         <button type="button" className="btn secondary" onClick={addItem} style={{ marginBottom: 14 }}>+ {t('add_item')}</button>

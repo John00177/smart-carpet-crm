@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { Payment, Transfer, Warehouse, User } = require('../models');
-const { todayStr } = require('../utils/date');
+const { todayStr, rangeFromQuery, dateWhere } = require('../utils/date');
 
 async function computeBranchDebt(branchId) {
   const warehouse = await Warehouse.findOne({ where: { type: 'branch', branch_id: branchId } });
@@ -17,8 +17,14 @@ exports.computeBranchDebt = computeBranchDebt;
 
 exports.list = async (req, res) => {
   try {
-    const where = {};
-    if (req.user.role === 'branch') where.branch_id = req.user.branch_id;
+    const { startDate, endDate } = rangeFromQuery(req.query);
+    const where = { ...dateWhere('payment_date', startDate, endDate) };
+    if (req.user.role === 'branch') {
+      // Branch users are always scoped to their own branch, whatever they ask for.
+      where.branch_id = req.user.branch_id;
+    } else if (req.query.branch_id) {
+      where.branch_id = req.query.branch_id;
+    }
     const payments = await Payment.findAll({ where, order: [['payment_date', 'DESC'], ['id', 'DESC']] });
     res.json(payments);
   } catch (err) {

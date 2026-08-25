@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import Modal from '../components/Modal';
 import api from '../services/api';
-import { money } from '../utils/format';
+import { formatMoney } from '../utils/format';
+import { EmptyState } from '../components/Skeleton';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
 
@@ -54,12 +55,15 @@ export default function Products() {
               {products.map((p) => (
                 <tr key={p.id}>
                   <td>{p.name_uz}</td><td>{p.name_ru}</td><td>{p.size}</td><td>{p.color}</td>
-                  <td>{money(p.cost_price)}</td><td>{money(p.sell_price)}</td><td>{money(p.retail_price)}</td>
+                  <td>{formatMoney(p.cost_price)}</td><td>{formatMoney(p.sell_price)}</td><td>{formatMoney(p.retail_price)}</td>
                   {user.role === 'admin' && (
                     <td><button className="btn secondary" onClick={() => handleDelete(p.id)}>{t('remove')}</button></td>
                   )}
                 </tr>
               ))}
+              {products.length === 0 && (
+                <tr><td colSpan={user.role === 'admin' ? 8 : 7}><EmptyState icon="🧶" text={t('no_data')} /></td></tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -1,10 +1,13 @@
 const { Op } = require('sequelize');
 const { Transfer, TransferItem, Stock, Product, Warehouse, User } = require('../models');
 const sequelize = require('../config/database');
+const { rangeFromQuery, dateWhere } = require('../utils/date');
 
 exports.list = async (req, res) => {
   try {
+    const { startDate, endDate } = rangeFromQuery(req.query);
     const transfers = await Transfer.findAll({
+      where: dateWhere('transfer_date', startDate, endDate),
       include: [
         { model: Warehouse, as: 'fromWarehouse' },
         { model: Warehouse, as: 'toWarehouse' },

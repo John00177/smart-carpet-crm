@@ -1,147 +1,237 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Layout from '../components/Layout';
+import DateFilterBar from '../components/DateFilterBar';
+import { SkeletonCards, SkeletonTable, EmptyState } from '../components/Skeleton';
+import { BarChart, ProportionBar } from '../components/Charts';
 import api from '../services/api';
-import { money, qty } from '../utils/format';
+import { formatMoney, formatQty, dateStr } from '../utils/format';
+import { defaultRange } from '../utils/dateRange';
 import { useLang } from '../context/LangContext';
 
 export default function AdminDashboard() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const [filter, setFilter] = useState(defaultRange);
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [sortDesc, setSortDesc] = useState(true);
+  const [expanded, setExpanded] = useState(null);
 
-  useEffect(() => {
-    api.get('/dashboard/admin')
-      .then((res) => setData(res.data))
-      .catch((err) => setError(err.response?.data?.error || t('failed_to_load_dashboard')));
+  const load = useCallback(() => {
+    setLoading(true);
+    api.get('/dashboard/admin', { params: { startDate: filter.startDate, endDate: filter.endDate } })
+      .then((res) => { setData(res.data); setError(''); })
+      .catch((err) => setError(err.response?.data?.error || t('failed_to_load_dashboard')))
+      .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [filter.startDate, filter.endDate]);
 
-  if (error) return <Layout><div className="page-title">{t('admin_dashboard')}</div><div className="error-text">{error}</div></Layout>;
-  if (!data) return <Layout><div className="loading-wrap">{t('loading')}</div></Layout>;
+  useEffect(load, [load]);
+
+  const debts = data
+    ? [...data.branch_debts].sort((a, b) => (sortDesc ? b.debt - a.debt : a.debt - b.debt))
+    : [];
+
+  const chartData = data
+    ? data.cash_flow_series.flatMap((p) => ([
+      { label: bucketLabel(p.key, data.series_mode), value: p.income, color: 'var(--color-success)' },
+      { label: '', value: p.outcome, color: 'var(--color-accent)' },
+    ]))
+    : [];
 
   return (
     <Layout>
-      <div className="page-title">{t('admin_dashboard')}</div>
-
-      <div className="cards-grid">
-        <div className="card">
-          <div className="label">{t('total_carpets_all')}</div>
-          <div className="value">{qty(data.total_carpets)}</div>
-        </div>
-        <div className="card">
-          <div className="label">{t('total_cost_value')}</div>
-          <div className="value">{money(data.total_cost_value)}</div>
-        </div>
-        <div className="card">
-          <div className="label">{t('total_sell_value')}</div>
-          <div className="value">{money(data.total_sell_value)}</div>
-        </div>
-        <div className="card">
-          <div className="label">{t('total_branch_debt')}</div>
-          <div className="value negative">{money(data.total_branch_debt)}</div>
-        </div>
+      <div className="exec-header">
+        <div className="page-title" style={{ marginBottom: 4 }}>{t('admin_dashboard')}</div>
+        {data && <div className="exec-sub">{dateStr(data.range.startDate)} — {dateStr(data.range.endDate)}</div>}
       </div>
 
-      <div className="cards-grid">
-        <div className="card">
-          <div className="label">{t('central_worth')}</div>
-          <div className="value">{money(data.central_sell_value)}</div>
-          <div className="sub">{qty(data.central_carpets)} {t('carpets_cost')} {money(data.central_cost_value)}</div>
-        </div>
-        <div className="card">
-          <div className="label">{t('branch_worth')}</div>
-          <div className="value">{money(data.branch_sell_value)}</div>
-          <div className="sub">{qty(data.branch_carpets)} {t('carpets_cost')} {money(data.branch_cost_value)}</div>
-        </div>
-      </div>
+      {error && <div className="error-text">{error}</div>}
 
-      <div className="section">
-        <div className="section-title">{t('today')}</div>
-        <div className="cards-grid">
-          <div className="card">
-            <div className="label">{t('income')}</div>
-            <div className="value positive">{money(data.daily.income)}</div>
-          </div>
-          <div className="card">
-            <div className="label">{t('outcome')}</div>
-            <div className="value negative">{money(data.daily.outcome)}</div>
-          </div>
-          <div className="card">
-            <div className="label">{t('net')}</div>
-            <div className={`value ${data.daily.net >= 0 ? 'positive' : 'negative'}`}>{money(data.daily.net)}</div>
-          </div>
-          <div className="card">
-            <div className="label">{t('transfers_out')}</div>
-            <div className="value">{qty(data.daily.transfers_out_qty)}</div>
-            <div className="sub">{money(data.daily.transfers_out_value)} {t('cost_value')}</div>
-          </div>
-          <div className="card">
-            <div className="label">{t('purchases_in')}</div>
-            <div className="value">{qty(data.daily.purchases_in_qty)}</div>
-            <div className="sub">{money(data.daily.purchases_in_value)}</div>
-          </div>
-          <div className="card">
-            <div className="label">{t('branch_sales_total')}</div>
-            <div className="value">{money(data.daily.branch_sales)}</div>
-          </div>
+      {loading && !data ? <SkeletonCards count={4} tall /> : data && (
+        <div className="cards-grid exec-stats">
+          <StatCard icon="💰" label={t('total_stock_cost')} value={formatMoney(data.total_cost_value)}
+            sub={`${formatQty(data.total_carpets)} ${t('carpets')}`} />
+          <StatCard icon="📈" label={t('total_stock_sell')} value={formatMoney(data.total_sell_value)} />
+          <StatCard icon="🏦" label={t('total_branch_debt')} value={formatMoney(data.total_branch_debt)} tone="gold" />
+          <StatCard icon="📊" label={t('potential_profit')} value={formatMoney(data.potential_profit)} tone="green" />
         </div>
-      </div>
+      )}
 
-      <div className="cards-grid">
-        <div className="section" style={{ margin: 0 }}>
-          <div className="section-title">{t('this_week')}</div>
-          <div className="card">
-            <div className="label">{t('net_income')}</div>
-            <div className={`value ${data.weekly.net >= 0 ? 'positive' : 'negative'}`}>{money(data.weekly.net)}</div>
-            <div className="sub">{money(data.weekly.income)} / {money(data.weekly.outcome)}</div>
-          </div>
-        </div>
-        <div className="section" style={{ margin: 0 }}>
-          <div className="section-title">{t('this_month')}</div>
-          <div className="card">
-            <div className="label">{t('net_income')}</div>
-            <div className={`value ${data.monthly.net >= 0 ? 'positive' : 'negative'}`}>{money(data.monthly.net)}</div>
-            <div className="sub">{money(data.monthly.income)} / {money(data.monthly.outcome)}</div>
-          </div>
-        </div>
-      </div>
+      <DateFilterBar value={filter} onChange={setFilter} />
 
-      <div className="section">
-        <div className="section-title">{t('branch_debt_title')}</div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>{t('branch')}</th>
-                <th>{t('manager')}</th>
-                <th>{t('total_given')}</th>
-                <th>{t('total_paid')}</th>
-                <th>{t('debt_remaining')}</th>
-                <th>{t('progress')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.branch_debts.map((b) => {
-                const pct = b.total_given > 0 ? Math.min(100, (b.total_paid / b.total_given) * 100) : 0;
-                return (
-                  <tr key={b.id}>
-                    <td>{b.name}</td>
-                    <td>{b.manager_name || '-'}</td>
-                    <td>{money(b.total_given)}</td>
-                    <td>{money(b.total_paid)}</td>
-                    <td className={b.debt > 0 ? 'error-text' : ''}>{money(b.debt)}</td>
-                    <td style={{ minWidth: 140 }}>
-                      <div className="progress-bar-bg">
-                        <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {data && (
+        <div className="exec-split">
+          <div className="section">
+            <div className="section-title">{t('stock_distribution')}</div>
+
+            <div className="dist-row">
+              <div className="dist-name">{t('central_warehouse')}</div>
+              <div className="dist-nums">
+                <span>{formatQty(data.central_carpets)} {t('carpets')}</span>
+                <strong>{formatMoney(data.central_sell_value)}</strong>
+              </div>
+            </div>
+            <div className="dist-row">
+              <div className="dist-name">{t('branch_warehouses')}</div>
+              <div className="dist-nums">
+                <span>{formatQty(data.branch_carpets)} {t('carpets')}</span>
+                <strong>{formatMoney(data.branch_sell_value)}</strong>
+              </div>
+            </div>
+
+            <div style={{ height: 18 }} />
+            <ProportionBar segments={[
+              { label: t('central_warehouse'), value: data.central_sell_value, color: 'var(--color-heading)' },
+              { label: t('branch_warehouses'), value: data.branch_sell_value, color: 'var(--color-accent)' },
+            ]} />
+
+            <div className="exec-divider" />
+            <div className="dist-row">
+              <div className="dist-name">{t('profit')}</div>
+              <div className="dist-nums">
+                <strong className="pos">{formatMoney(data.potential_profit)}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="section">
+            <div className="section-title">{t('cash_flow')}</div>
+            <div className="flow-legend">
+              <span><i className="dot" style={{ background: 'var(--color-success)' }} />{t('income')}: <strong>{formatMoney(data.range.income)}</strong></span>
+              <span><i className="dot" style={{ background: 'var(--color-accent)' }} />{t('outcome')}: <strong>{formatMoney(data.range.outcome)}</strong></span>
+            </div>
+            <BarChart data={chartData} height={150} emptyText={t('no_data')} />
+            <div className="exec-divider" />
+            <div className="dist-row">
+              <div className="dist-name">{t('net')}</div>
+              <div className="dist-nums">
+                <strong className={data.range.net >= 0 ? 'pos' : 'neg'}>{formatMoney(data.range.net)}</strong>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {loading && !data ? <SkeletonTable rows={5} cols={5} /> : data && (
+        <div className="section">
+          <div className="section-title">{t('branch_debt_title')}</div>
+          <div className="table-wrap">
+            <table className="premium-table">
+              <thead>
+                <tr>
+                  <th>{t('branch')}</th>
+                  <th>{t('manager')}</th>
+                  <th>{t('total_given')}</th>
+                  <th>{t('total_paid')}</th>
+                  <th className="sortable" onClick={() => setSortDesc((s) => !s)}>
+                    {t('debt_remaining')} {sortDesc ? '↓' : '↑'}
+                  </th>
+                  <th>{t('payment_progress')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {debts.map((b) => {
+                  const pct = b.total_given > 0 ? Math.min(100, (b.total_paid / b.total_given) * 100) : 0;
+                  const isOpen = expanded === b.id;
+                  return (
+                    <React.Fragment key={b.id}>
+                      <tr className="row-click" onClick={() => setExpanded(isOpen ? null : b.id)}>
+                        <td><span className="row-caret">{isOpen ? '▾' : '▸'}</span>{b.name}</td>
+                        <td>{b.manager_name || '-'}</td>
+                        <td>{formatMoney(b.total_given)}</td>
+                        <td>{formatMoney(b.total_paid)}</td>
+                        <td className={b.debt > 0 ? 'neg' : ''}>{formatMoney(b.debt)}</td>
+                        <td style={{ minWidth: 150 }}>
+                          <div className="progress-bar-bg gold">
+                            <div className="progress-bar-fill gold" style={{ width: `${pct}%` }} />
+                          </div>
+                        </td>
+                      </tr>
+                      {isOpen && (
+                        <tr className="expand-row">
+                          <td colSpan={6}>
+                            <div className="expand-grid">
+                              <div>
+                                <div className="expand-title">{t('recent_payments_made')}</div>
+                                {b.recent_payments.length === 0
+                                  ? <div className="expand-empty">{t('no_payments_yet')}</div>
+                                  : b.recent_payments.map((p) => (
+                                    <div className="expand-line" key={p.id}>
+                                      <span>{dateStr(p.payment_date)}</span>
+                                      <strong>{formatMoney(p.amount)}</strong>
+                                    </div>
+                                  ))}
+                              </div>
+                              <div>
+                                <div className="expand-title">{t('recent_transfers_received')}</div>
+                                {b.recent_transfers.length === 0
+                                  ? <div className="expand-empty">{t('no_transfers_yet')}</div>
+                                  : b.recent_transfers.map((tr) => (
+                                    <div className="expand-line" key={tr.id}>
+                                      <span>{dateStr(tr.transfer_date)} · {tr.items.map((i) => `${lang === 'ru' ? i.name_ru : i.name_uz} ×${i.quantity}`).join(', ')}</span>
+                                      <strong>{formatMoney(tr.total_sell_value)}</strong>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+                {debts.length === 0 && (
+                  <tr><td colSpan={6}><EmptyState icon="🏦" text={t('no_data')} /></td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {data && (
+        <div className="section">
+          <div className="section-title">{t('movement_summary')}</div>
+          <div className="cards-grid">
+            <MiniStat label={t('transfers_out')} main={formatQty(data.range.transfers_out_qty)}
+              sub={`${formatMoney(data.range.transfers_out_value)} ${t('cost_value')}`} />
+            <MiniStat label={t('purchases_in')} main={formatQty(data.range.purchases_in_qty)}
+              sub={formatMoney(data.range.purchases_in_value)} />
+            <MiniStat label={t('branch_sales_total')} main={formatMoney(data.range.branch_sales)}
+              sub={`${formatQty(data.range.branch_sales_qty)} ${t('carpets')}`} />
+          </div>
+        </div>
+      )}
     </Layout>
   );
+}
+
+function StatCard({ icon, label, value, sub, tone }) {
+  return (
+    <div className="card stat-card">
+      <div className="stat-icon" aria-hidden="true">{icon}</div>
+      <div className="label">{label}</div>
+      <div className={`stat-value${tone ? ` ${tone}` : ''}`}>{value}</div>
+      {sub && <div className="sub">{sub}</div>}
+    </div>
+  );
+}
+
+function MiniStat({ label, main, sub }) {
+  return (
+    <div className="card">
+      <div className="label">{label}</div>
+      <div className="value">{main}</div>
+      {sub && <div className="sub">{sub}</div>}
+    </div>
+  );
+}
+
+function bucketLabel(key, mode) {
+  if (mode === 'month') {
+    const [y, m] = key.split('-');
+    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-GB', { month: 'short' });
+  }
+  return String(Number(key.slice(8, 10)));
 }

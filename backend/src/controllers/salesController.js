@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
 const { BranchSale, Stock, Warehouse, Product } = require('../models');
 const sequelize = require('../config/database');
-const { todayStr } = require('../utils/date');
+const { todayStr, rangeFromQuery, dateWhere } = require('../utils/date');
 
 async function findBranchWarehouse(branchId, t) {
   return Warehouse.findOne({ where: { type: 'branch', branch_id: branchId }, transaction: t });
@@ -9,9 +9,13 @@ async function findBranchWarehouse(branchId, t) {
 
 exports.list = async (req, res) => {
   try {
-    const where = {};
+    const { startDate, endDate } = rangeFromQuery(req.query);
+    const where = { ...dateWhere('sale_date', startDate, endDate) };
     if (req.user.role === 'branch') {
+      // Branch users are always scoped to their own branch, whatever they ask for.
       where.branch_id = req.user.branch_id;
+    } else if (req.query.branch_id) {
+      where.branch_id = req.query.branch_id;
     }
     const sales = await BranchSale.findAll({
       where,

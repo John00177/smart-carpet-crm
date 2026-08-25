@@ -1,11 +1,13 @@
 const { Op } = require('sequelize');
 const { Purchase, Stock, Warehouse, Product, User } = require('../models');
 const sequelize = require('../config/database');
-const { todayStr } = require('../utils/date');
+const { todayStr, rangeFromQuery, dateWhere } = require('../utils/date');
 
 exports.list = async (req, res) => {
   try {
+    const { startDate, endDate } = rangeFromQuery(req.query);
     const purchases = await Purchase.findAll({
+      where: dateWhere('purchase_date', startDate, endDate),
       include: [Product, { model: User, as: 'creator', attributes: ['id', 'name'] }],
       order: [['purchase_date', 'DESC'], ['id', 'DESC']],
     });

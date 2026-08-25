@@ -152,6 +152,45 @@ export const translations = {
     select_different_warehouses: 'Boshlang’ich va yakuniy omborlar har xil bo’lishi kerak',
     add_at_least_one_item: 'Kamida bitta mahsulot qo’shing',
     enter_valid_amount: 'To’g’ri summa kiriting',
+
+    // Date filter
+    period: 'Davr',
+    filter_today: 'Bugun',
+    filter_week: 'Shu hafta',
+    filter_month: 'Shu oy',
+    filter_year: 'Shu yil',
+    filter_custom: 'Tanlangan',
+    from_date: 'Boshlanishi',
+    to_date: 'Tugashi',
+    apply_filter: 'Qo’llash',
+    reset: 'Tozalash',
+
+    // Rich man dashboard
+    total_stock_cost: 'Jami zaxira (tannarx)',
+    total_stock_sell: 'Jami zaxira (sotish)',
+    potential_profit: 'Potentsial foyda',
+    cash_flow: 'Pul oqimi',
+    central_warehouse: 'Markaziy ombor',
+    branch_warehouses: 'Filial omborlari',
+    profit: 'Foyda',
+    stock_distribution: 'Zaxira taqsimoti',
+    movement_summary: 'Harakat hisoboti',
+    payment_progress: 'To’lov jarayoni',
+
+    // Branch dashboard
+    my_stock: 'Mening zaxiram',
+    debt_to_owner: 'Boyga qarz',
+    my_sales_period: 'Sotuvlarim',
+    recent_activity: 'So’nggi harakatlar',
+    sales_performance: 'Sotuv ko’rsatkichlari',
+    activity_received: 'Qabul qilindi',
+    activity_paid: 'To’landi',
+    activity_sold: 'Sotildi',
+    stock_worth: 'zaxira qiymati',
+
+    // Empty / misc
+    no_data: 'Ma’lumot yo’q',
+    no_activity_yet: 'Hali harakat yo’q',
   },
   ru: {
     app_name: 'Smart Carpet CRM',
@@ -296,5 +335,44 @@ export const translations = {
     select_different_warehouses: 'Выберите разные склады отправления и назначения',
     add_at_least_one_item: 'Добавьте хотя бы один товар',
     enter_valid_amount: 'Введите корректную сумму',
+
+    // Date filter
+    period: 'Период',
+    filter_today: 'Сегодня',
+    filter_week: 'Эта неделя',
+    filter_month: 'Этот месяц',
+    filter_year: 'Этот год',
+    filter_custom: 'Выбрать',
+    from_date: 'С',
+    to_date: 'По',
+    apply_filter: 'Применить',
+    reset: 'Сбросить',
+
+    // Rich man dashboard
+    total_stock_cost: 'Общий запас (себестоимость)',
+    total_stock_sell: 'Общий запас (продажа)',
+    potential_profit: 'Потенциальная прибыль',
+    cash_flow: 'Денежный поток',
+    central_warehouse: 'Центральный склад',
+    branch_warehouses: 'Склады филиалов',
+    profit: 'Прибыль',
+    stock_distribution: 'Распределение запаса',
+    movement_summary: 'Сводка движения',
+    payment_progress: 'Прогресс оплаты',
+
+    // Branch dashboard
+    my_stock: 'Мой запас',
+    debt_to_owner: 'Долг владельцу',
+    my_sales_period: 'Мои продажи',
+    recent_activity: 'Последние действия',
+    sales_performance: 'Показатели продаж',
+    activity_received: 'Получено',
+    activity_paid: 'Оплачено',
+    activity_sold: 'Продано',
+    stock_worth: 'стоимость запаса',
+
+    // Empty / misc
+    no_data: 'Нет данных',
+    no_activity_yet: 'Пока нет действий',
   },
 };
