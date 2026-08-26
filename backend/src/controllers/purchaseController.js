@@ -2,7 +2,7 @@ const { Op } = require('sequelize');
 const { Purchase, Stock, Warehouse, Product, User } = require('../models');
 const sequelize = require('../config/database');
 const { todayStr, rangeFromQuery, dateWhere } = require('../utils/date');
-const { metersFromPieces, applyStockDelta } = require('../utils/meters');
+const { isMeterType, applyStockDelta } = require('../utils/meters');
 
 exports.list = async (req, res) => {
   try {
@@ -21,23 +21,25 @@ exports.list = async (req, res) => {
 exports.create = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { product_id, quantity, unit_cost, currency, purchase_date, supplier, notes } = req.body;
-    if (!product_id || !quantity || unit_cost == null) {
+    const { product_id, amount, unit_cost, currency, purchase_date, supplier, notes } = req.body;
+    const qty = Number(amount);
+    if (!product_id || !isFinite(qty) || qty <= 0 || unit_cost == null) {
       await t.rollback();
-      return res.status(400).json({ error: 'product_id, quantity, unit_cost are required' });
+      return res.status(400).json({ error: 'product_id, amount, unit_cost are required' });
     }
-    const product = await Product.findByPk(product_id);
+    const product = await Product.findByPk(product_id, { transaction: t });
     if (!product) {
       await t.rollback();
       return res.status(404).json({ error: 'Product not found' });
     }
-    const total_cost = quantity * unit_cost;
-    const meter_quantity = metersFromPieces(quantity, product);
+
+    const meter = isMeterType(product);
+    const total_cost = qty * unit_cost;
 
     const purchase = await Purchase.create({
       product_id,
-      quantity,
-      meter_quantity,
+      quantity: meter ? 0 : Math.round(qty),
+      meter_quantity: meter ? qty : 0,
       unit_cost,
       total_cost,
       currency: currency || 'USD',
@@ -56,7 +58,7 @@ exports.create = async (req, res) => {
     await applyStockDelta({
       warehouseId: central.id,
       productId: product_id,
-      meterDelta: meter_quantity,
+      delta: qty,
       product,
       transaction: t,
     });
@@ -75,7 +77,8 @@ exports.dailyTotal = async (req, res) => {
     const purchases = await Purchase.findAll({ where: { purchase_date: date } });
     const total = purchases.reduce((sum, p) => sum + parseFloat(p.total_cost), 0);
     const qty = purchases.reduce((sum, p) => sum + p.quantity, 0);
-    res.json({ date, total_cost: total, quantity: qty, count: purchases.length });
+    const meters = purchases.reduce((sum, p) => sum + parseFloat(p.meter_quantity || 0), 0);
+    res.json({ date, total_cost: total, quantity: qty, meter_quantity: meters, count: purchases.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -90,7 +93,8 @@ exports.periodTotal = async (req, res) => {
     });
     const total = purchases.reduce((sum, p) => sum + parseFloat(p.total_cost), 0);
     const qty = purchases.reduce((sum, p) => sum + p.quantity, 0);
-    res.json({ startDate, endDate, total_cost: total, quantity: qty, count: purchases.length });
+    const meters = purchases.reduce((sum, p) => sum + parseFloat(p.meter_quantity || 0), 0);
+    res.json({ startDate, endDate, total_cost: total, quantity: qty, meter_quantity: meters, count: purchases.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

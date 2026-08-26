@@ -1,5 +1,5 @@
 const { Stock, Product, Warehouse } = require('../models');
-const { valueOf, round2 } = require('../utils/meters');
+const { valueOf, round2, isMeterType } = require('../utils/meters');
 
 exports.list = async (req, res) => {
   try {
@@ -22,20 +22,24 @@ exports.byWarehouse = async (req, res) => {
   }
 };
 
-/** Aggregate a set of stock rows into quantity / meters / cost / sell totals. */
+/**
+ * Aggregate a set of stock rows into separate piece/meter totals plus
+ * combined cost/sell value. Piece and meter quantities are never summed
+ * together — they are different units.
+ */
 function aggregate(rows) {
-  let quantity = 0, meters = 0, cost = 0, sell = 0;
+  let pieceQty = 0, meterQty = 0, cost = 0, sell = 0;
   for (const row of rows) {
     if (!row.Product) continue;
-    const v = valueOf(row.meter_quantity, row.Product);
-    quantity += v.pieces;
-    meters += v.meters;
+    const v = valueOf(row, row.Product);
+    pieceQty += v.quantity;
+    meterQty += v.meter_quantity;
     cost += v.cost;
     sell += v.sell;
   }
   return {
-    quantity: round2(quantity),
-    meter_quantity: round2(meters),
+    quantity: pieceQty,
+    meter_quantity: round2(meterQty),
     cost_value: round2(cost),
     sell_value: round2(sell),
   };
@@ -88,7 +92,7 @@ exports.branchesValue = async (req, res) => {
   }
 };
 
-/** Per-product metre breakdown for one warehouse. */
+/** Per-product stock breakdown for one warehouse, in each product's native unit. */
 exports.metersByWarehouse = async (req, res) => {
   try {
     const warehouse = await Warehouse.findByPk(req.params.warehouseId);
@@ -106,18 +110,18 @@ exports.metersByWarehouse = async (req, res) => {
     });
 
     const items = rows
-      .filter((r) => r.Product && parseFloat(r.meter_quantity) > 0)
+      .filter((r) => r.Product && (isMeterType(r.Product) ? parseFloat(r.meter_quantity) > 0 : r.quantity > 0))
       .map((r) => {
-        const v = valueOf(r.meter_quantity, r.Product);
+        const v = valueOf(r, r.Product);
         return {
           product_id: r.Product.id,
           name_uz: r.Product.name_uz,
           name_ru: r.Product.name_ru,
           size: r.Product.size,
           color: r.Product.color,
-          meters_per_piece: r.Product.meters_per_piece,
-          meter_quantity: v.meters,
-          quantity: v.pieces,
+          unit_type: r.Product.unit_type,
+          quantity: v.quantity,
+          meter_quantity: v.meter_quantity,
           cost_value: v.cost,
           sell_value: v.sell,
         };

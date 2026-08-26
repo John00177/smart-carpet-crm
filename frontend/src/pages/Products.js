@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import Modal from '../components/Modal';
 import api from '../services/api';
-import { formatMoney, formatMeters } from '../utils/format';
+import { formatMoney } from '../utils/format';
 import { EmptyState } from '../components/Skeleton';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -47,7 +47,7 @@ export default function Products() {
             <thead>
               <tr>
                 <th>{t('name_uz')}</th><th>{t('name_ru')}</th><th>{t('size')}</th><th>{t('color')}</th>
-                <th>{t('meters_per_piece')}</th>
+                <th>{t('product_type')}</th>
                 <th>{t('cost')}</th><th>{t('sell')}</th><th>{t('retail')}</th>
                 {user.role === 'admin' && <th></th>}
               </tr>
@@ -56,7 +56,11 @@ export default function Products() {
               {products.map((p) => (
                 <tr key={p.id}>
                   <td>{p.name_uz}</td><td>{p.name_ru}</td><td>{p.size}</td><td>{p.color}</td>
-                  <td>{formatMeters(p.meters_per_piece)} {t('meters').toLowerCase()}</td>
+                  <td>
+                    <span className={`badge ${p.unit_type === 'meter' ? 'blue' : 'green'}`}>
+                      {p.unit_type === 'meter' ? t('by_meter') : t('by_piece')}
+                    </span>
+                  </td>
                   <td>{formatMoney(p.cost_price)}</td><td>{formatMoney(p.sell_price)}</td><td>{formatMoney(p.retail_price)}</td>
                   {user.role === 'admin' && (
                     <td><button className="btn secondary" onClick={() => handleDelete(p.id)}>{t('remove')}</button></td>
@@ -79,7 +83,7 @@ function AddProductModal({ onClose, onSaved }) {
   const { t } = useLang();
   const [form, setForm] = useState({
     name_uz: '', name_ru: '', size: '', color: '',
-    cost_price: '', sell_price: '', retail_price: '', meters_per_piece: '',
+    cost_price: '', sell_price: '', retail_price: '', unit_type: 'piece',
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -97,7 +101,6 @@ function AddProductModal({ onClose, onSaved }) {
         cost_price: Number(form.cost_price),
         sell_price: Number(form.sell_price),
         retail_price: Number(form.retail_price),
-        meters_per_piece: Number(form.meters_per_piece),
       });
       onSaved();
     } catch (err) {
@@ -115,10 +118,11 @@ function AddProductModal({ onClose, onSaved }) {
         <div className="form-group"><label>{t('size')}</label><input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} placeholder="e.g. 2x3m" /></div>
         <div className="form-group"><label>{t('color')}</label><input value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div>
         <div className="form-group">
-          <label>{t('meters_per_piece')}</label>
-          <input type="number" min="0.01" step="0.01" value={form.meters_per_piece}
-            onChange={(e) => setForm({ ...form, meters_per_piece: e.target.value })} />
-          <div className="field-hint">{t('meters_per_piece_hint')}</div>
+          <label>{t('product_type')}</label>
+          <select value={form.unit_type} onChange={(e) => setForm({ ...form, unit_type: e.target.value })}>
+            <option value="piece">{t('by_piece')}</option>
+            <option value="meter">{t('by_meter')}</option>
+          </select>
         </div>
         <div className="form-group"><label>{t('cost_price')}</label><input type="number" min="0" step="0.01" value={form.cost_price} onChange={(e) => setForm({ ...form, cost_price: e.target.value })} /></div>
         <div className="form-group"><label>{t('sell_price_branch')}</label><input type="number" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} /></div>

@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import DateFilterBar from '../components/DateFilterBar';
 import { SkeletonTable, EmptyState } from '../components/Skeleton';
 import api from '../services/api';
-import { formatMoney, formatQty, dateStr } from '../utils/format';
+import { formatMoney, formatQty, formatMeters, dateStr } from '../utils/format';
 import { defaultRange } from '../utils/dateRange';
 import { useLang } from '../context/LangContext';
 
@@ -26,8 +26,15 @@ export default function Purchases() {
   useEffect(load, [load]);
 
   const name = (p) => (lang === 'ru' ? p.name_ru : p.name_uz);
+
+  function amountOf(p) {
+    const meter = p.Product && p.Product.unit_type === 'meter';
+    return meter
+      ? `${formatMeters(p.meter_quantity)} ${t('meters').toLowerCase()}`
+      : `${formatQty(p.quantity)} ${t('pieces').toLowerCase()}`;
+  }
+
   const total = purchases.reduce((s, x) => s + Number(x.total_cost || 0), 0);
-  const totalQty = purchases.reduce((s, x) => s + Number(x.quantity || 0), 0);
 
   return (
     <Layout>
@@ -39,9 +46,7 @@ export default function Purchases() {
         <div className="section">
           <div className="section-title">
             <span>{t('purchase_history')}</span>
-            <span className="section-total">
-              {formatQty(totalQty)} {t('carpets')} · <strong>{formatMoney(total)}</strong>
-            </span>
+            <span className="section-total"><strong>{formatMoney(total)}</strong></span>
           </div>
           <div className="table-wrap">
             <table>
@@ -56,7 +61,7 @@ export default function Purchases() {
                   <tr key={p.id}>
                     <td>{dateStr(p.purchase_date)}</td>
                     <td>{p.Product ? name(p.Product) : ''}</td>
-                    <td>{formatQty(p.quantity)}</td>
+                    <td>{amountOf(p)}</td>
                     <td>{formatMoney(p.unit_cost)}</td>
                     <td>{formatMoney(p.total_cost)}</td>
                     <td>{p.supplier || '-'}</td>

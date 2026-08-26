@@ -221,10 +221,8 @@ export const translations = {
     entries: 'ta yozuv',
     days_short: 'kun',
 
-    // Meters
+    // Meters / units
     meters: 'Metr',
-    meters_per_piece: '1 dona necha metr',
-    meters_per_piece_hint: 'Masalan, gilam 4x5m bo’lsa — 20 kiriting',
     pieces: 'Dona',
     meters_sold: 'Sotilgan metr',
     meters_in_stock: 'Ombordagi metr',
@@ -234,6 +232,18 @@ export const translations = {
     meters_to_transfer: 'O’tkaziladigan metr',
     price_per_meter: '1 metr narxi',
     available: 'mavjud',
+
+    // Product type (piece vs meter)
+    product_type: 'Mahsulot turi',
+    by_piece: 'Dona bo’yicha',
+    by_meter: 'Metr bo’yicha',
+    piece_products: 'Dona mahsulotlari',
+    meter_products: 'Metr mahsulotlari',
+    quantity_pcs: 'Dona soni',
+    quantity_meters: 'Metr soni',
+    sell_pcs: 'Sotilgan dona',
+    sell_meters: 'Sotilgan metr',
+    insufficient_stock: 'Omborda yetarli mahsulot yo’q',
   },
   ru: {
     app_name: 'Smart Carpet CRM',
@@ -447,10 +457,8 @@ export const translations = {
     entries: 'записей',
     days_short: 'дн.',
 
-    // Meters
+    // Meters / units
     meters: 'Метров',
-    meters_per_piece: 'Метров в штуке',
-    meters_per_piece_hint: 'Например, ковёр 4x5м — введите 20',
     pieces: 'Штук',
     meters_sold: 'Продано метров',
     meters_in_stock: 'Метров на складе',
@@ -460,5 +468,17 @@ export const translations = {
     meters_to_transfer: 'Метров к передаче',
     price_per_meter: 'Цена за метр',
     available: 'доступно',
+
+    // Product type (piece vs meter)
+    product_type: 'Тип товара',
+    by_piece: 'По штукам',
+    by_meter: 'По метрам',
+    piece_products: 'Товары поштучно',
+    meter_products: 'Товары по метрам',
+    quantity_pcs: 'Количество штук',
+    quantity_meters: 'Количество метров',
+    sell_pcs: 'Продано штук',
+    sell_meters: 'Продано метров',
+    insufficient_stock: 'Недостаточно товара на складе',
   },
 };

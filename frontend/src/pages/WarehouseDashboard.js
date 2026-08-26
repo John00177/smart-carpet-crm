@@ -30,6 +30,14 @@ export default function WarehouseDashboard() {
 
   const name = (p) => (lang === 'ru' ? p.name_ru : p.name_uz);
 
+  function itemLabel(item) {
+    const p = item.Product;
+    const label = p ? name(p) : '';
+    return p && p.unit_type === 'meter'
+      ? `${label} — ${formatMeters(item.meter_quantity)} ${t('meters').toLowerCase()}`
+      : `${label} — ${formatQty(item.quantity)} ${t('pieces').toLowerCase()}`;
+  }
+
   return (
     <Layout>
       <div className="page-title">{t('warehouse_dashboard')}</div>
@@ -40,9 +48,9 @@ export default function WarehouseDashboard() {
           {data.warehouses.map((w) => (
             <div className="card" key={w.id}>
               <div className="label">{w.name}</div>
-              <div className="value">{formatMeters(w.total_meters)} <span className="unit">{t('meters').toLowerCase()}</span></div>
+              <div className="value">{formatQty(w.total_qty)} <span className="unit">{t('pieces').toLowerCase()}</span></div>
               <div className="sub">
-                ≈ {formatMeters(w.total_qty)} {t('pieces').toLowerCase()} · {t('cost_value')} {formatMoney(w.cost_value)}
+                {formatMeters(w.total_meters)} {t('meters').toLowerCase()} · {t('cost_value')} {formatMoney(w.cost_value)}
               </div>
             </div>
           ))}
@@ -62,7 +70,7 @@ export default function WarehouseDashboard() {
               <thead>
                 <tr>
                   <th>{t('name_uz')}</th><th>{t('name_ru')}</th><th>{t('size')}</th><th>{t('color')}</th>
-                  <th>{t('meters')}</th><th>{t('pieces')}</th>
+                  <th>{t('product_type')}</th><th>{t('qty')}</th>
                   <th>{t('cost')}</th><th>{t('sell')}</th>
                 </tr>
               </thead>
@@ -70,8 +78,18 @@ export default function WarehouseDashboard() {
                 {data.central_stock.map((p) => (
                   <tr key={p.id}>
                     <td>{p.name_uz}</td><td>{p.name_ru}</td><td>{p.size}</td><td>{p.color}</td>
-                    <td><strong>{formatMeters(p.meter_quantity)}</strong></td>
-                    <td>≈ {formatMeters(p.quantity)}</td>
+                    <td>
+                      <span className={`badge ${p.unit_type === 'meter' ? 'blue' : 'green'}`}>
+                        {p.unit_type === 'meter' ? t('by_meter') : t('by_piece')}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>
+                        {p.unit_type === 'meter'
+                          ? `${formatMeters(p.meter_quantity)} ${t('meters').toLowerCase()}`
+                          : `${formatQty(p.quantity)} ${t('pieces').toLowerCase()}`}
+                      </strong>
+                    </td>
                     <td>{formatMoney(p.cost_price)}</td><td>{formatMoney(p.sell_price)}</td>
                   </tr>
                 ))}
@@ -101,7 +119,7 @@ export default function WarehouseDashboard() {
                       <td>{dateStr(tr.transfer_date)}</td>
                       <td>{tr.fromWarehouse?.name}</td>
                       <td>{tr.toWarehouse?.name}</td>
-                      <td>{tr.items?.map((i) => `${i.Product ? name(i.Product) : ''} — ${formatMeters(i.meter_quantity)}m`).join(', ')}</td>
+                      <td>{tr.items?.map((i) => itemLabel(i)).join(', ')}</td>
                       <td>{formatMoney(tr.total_cost)}</td>
                       <td>{tr.creator?.name}</td>
                     </tr>
@@ -126,7 +144,11 @@ export default function WarehouseDashboard() {
                     <tr key={p.id}>
                       <td>{dateStr(p.purchase_date)}</td>
                       <td>{p.Product ? name(p.Product) : ''}</td>
-                      <td>{formatQty(p.quantity)} / {formatMeters(p.meter_quantity)}m</td>
+                      <td>
+                        {p.Product && p.Product.unit_type === 'meter'
+                          ? `${formatMeters(p.meter_quantity)} ${t('meters').toLowerCase()}`
+                          : `${formatQty(p.quantity)} ${t('pieces').toLowerCase()}`}
+                      </td>
                       <td>{formatMoney(p.unit_cost)}</td>
                       <td>{formatMoney(p.total_cost)}</td>
                       <td>{p.supplier || '-'}</td>
@@ -143,8 +165,12 @@ export default function WarehouseDashboard() {
         </>
       )}
 
-      {showPurchase && <PurchaseModal onClose={() => setShowPurchase(false)} onSaved={() => { setShowPurchase(false); load(); }} />}
-      {showTransfer && <TransferModal warehouses={data ? data.warehouses : []} onClose={() => setShowTransfer(false)} onSaved={() => { setShowTransfer(false); load(); }} />}
+      {showPurchase && (
+        <PurchaseModal onClose={() => setShowPurchase(false)} onSaved={() => { setShowPurchase(false); load(); }} />
+      )}
+      {showTransfer && (
+        <TransferModal warehouses={data ? data.warehouses : []} onClose={() => setShowTransfer(false)} onSaved={() => { setShowTransfer(false); load(); }} />
+      )}
     </Layout>
   );
 }
@@ -152,21 +178,20 @@ export default function WarehouseDashboard() {
 function PurchaseModal({ onClose, onSaved }) {
   const { t, lang } = useLang();
   const [products, setProducts] = useState([]);
-  const [form, setForm] = useState({ product_id: '', quantity: '', unit_cost: '', supplier: '', notes: '' });
+  const [form, setForm] = useState({ product_id: '', amount: '', unit_cost: '', supplier: '', notes: '' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { api.get('/products').then((res) => setProducts(res.data)); }, []);
 
-  const total = Number(form.quantity) * Number(form.unit_cost);
   const selected = products.find((p) => String(p.id) === String(form.product_id));
-  const mpp = selected ? Number(selected.meters_per_piece) || 1 : null;
-  const meters = mpp && form.quantity ? Number(form.quantity) * mpp : 0;
+  const isMeter = selected && selected.unit_type === 'meter';
+  const total = Number(form.amount) * Number(form.unit_cost);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (!form.product_id || !form.quantity || !form.unit_cost) {
+    if (!form.product_id || !form.amount || !form.unit_cost) {
       setError(t('all_fields_required'));
       return;
     }
@@ -174,7 +199,7 @@ function PurchaseModal({ onClose, onSaved }) {
     try {
       await api.post('/purchases', {
         product_id: Number(form.product_id),
-        quantity: Number(form.quantity),
+        amount: Number(form.amount),
         unit_cost: Number(form.unit_cost),
         supplier: form.supplier,
         notes: form.notes,
@@ -192,7 +217,7 @@ function PurchaseModal({ onClose, onSaved }) {
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label>{t('product')}</label>
-          <select value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })}>
+          <select value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value, amount: '' })}>
             <option value="">{t('select')}</option>
             {products.map((p) => (
               <option key={p.id} value={p.id}>
@@ -201,19 +226,13 @@ function PurchaseModal({ onClose, onSaved }) {
             ))}
           </select>
         </div>
-        <div className="form-group">
-          <label>{t('quantity')} ({t('pieces').toLowerCase()})</label>
-          <input type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
-          {mpp && (
-            <div className="field-hint">
-              1 {t('pieces').toLowerCase()} = {formatMeters(mpp)} {t('meters').toLowerCase()}
-            </div>
-          )}
-        </div>
-        {meters > 0 && (
-          <div className="modal-total">
-            <span>{t('total_meters')}</span>
-            <strong>{formatMeters(meters)} {t('meters').toLowerCase()}</strong>
+        {selected && (
+          <div className="form-group">
+            <label>{isMeter ? t('quantity_meters') : t('quantity_pcs')}</label>
+            <input
+              type="number" min={isMeter ? '0.01' : '1'} step={isMeter ? '0.01' : '1'}
+              value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            />
           </div>
         )}
         <div className="form-group">
@@ -246,32 +265,21 @@ function TransferModal({ warehouses, onClose, onSaved }) {
   const [products, setProducts] = useState([]);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [items, setItems] = useState([{ product_id: '', quantity: '', meter_quantity: '' }]);
+  const [items, setItems] = useState([{ product_id: '', amount: '' }]);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { api.get('/products').then((res) => setProducts(res.data)); }, []);
 
-  function mppOf(productId) {
-    const p = products.find((x) => String(x.id) === String(productId));
-    return p ? Number(p.meters_per_piece) || 1 : null;
+  function productOf(productId) {
+    return products.find((x) => String(x.id) === String(productId));
   }
 
   function updateItem(idx, field, value) {
-    const copy = items.map((it, i) => (i === idx ? { ...it, [field]: value } : it));
-    // Metres follow the piece count automatically, but stay editable so staff
-    // can hand over a partial roll.
-    if (field === 'quantity' || field === 'product_id') {
-      const row = copy[idx];
-      const mpp = mppOf(row.product_id);
-      if (mpp && row.quantity !== '') {
-        copy[idx] = { ...row, meter_quantity: String(Number(row.quantity) * mpp) };
-      }
-    }
-    setItems(copy);
+    setItems(items.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
   }
-  function addItem() { setItems([...items, { product_id: '', quantity: '', meter_quantity: '' }]); }
+  function addItem() { setItems([...items, { product_id: '', amount: '' }]); }
   function removeItem(idx) { setItems(items.filter((_, i) => i !== idx)); }
 
   async function handleSubmit(e) {
@@ -281,7 +289,7 @@ function TransferModal({ warehouses, onClose, onSaved }) {
       setError(t('select_different_warehouses'));
       return;
     }
-    const validItems = items.filter((i) => i.product_id && i.quantity && i.meter_quantity);
+    const validItems = items.filter((i) => i.product_id && i.amount);
     if (validItems.length === 0) {
       setError(t('add_at_least_one_item'));
       return;
@@ -294,8 +302,7 @@ function TransferModal({ warehouses, onClose, onSaved }) {
         notes,
         items: validItems.map((i) => ({
           product_id: Number(i.product_id),
-          quantity: Number(i.quantity),
-          meter_quantity: Number(i.meter_quantity),
+          amount: Number(i.amount),
         })),
       });
       onSaved();
@@ -324,9 +331,11 @@ function TransferModal({ warehouses, onClose, onSaved }) {
           </select>
         </div>
         <label className="group-label">{t('items')}</label>
-        {items.map((item, idx) => (
-          <div className="transfer-item-block" key={idx}>
-            <div className="transfer-items-row">
+        {items.map((item, idx) => {
+          const product = productOf(item.product_id);
+          const isMeter = product && product.unit_type === 'meter';
+          return (
+            <div className="transfer-items-row" key={idx}>
               <div className="form-group">
                 <select value={item.product_id} onChange={(e) => updateItem(idx, 'product_id', e.target.value)}>
                   <option value="">{t('product')}</option>
@@ -335,24 +344,19 @@ function TransferModal({ warehouses, onClose, onSaved }) {
                   ))}
                 </select>
               </div>
-              <div className="form-group">
-                <input type="number" min="0" step="0.01" placeholder={t('pieces')} value={item.quantity}
-                  onChange={(e) => updateItem(idx, 'quantity', e.target.value)} />
-              </div>
-              {items.length > 1 && <button type="button" className="btn secondary" onClick={() => removeItem(idx)}>−</button>}
-            </div>
-            <div className="form-group">
-              <label>{t('meters_to_transfer')}</label>
-              <input type="number" min="0.01" step="0.01" value={item.meter_quantity}
-                onChange={(e) => updateItem(idx, 'meter_quantity', e.target.value)} />
-              {mppOf(item.product_id) && (
-                <div className="field-hint">
-                  1 {t('pieces').toLowerCase()} = {formatMeters(mppOf(item.product_id))} {t('meters').toLowerCase()}
+              {product && (
+                <div className="form-group">
+                  <input
+                    type="number" min={isMeter ? '0.01' : '1'} step={isMeter ? '0.01' : '1'}
+                    placeholder={isMeter ? t('meters') : t('pieces')}
+                    value={item.amount} onChange={(e) => updateItem(idx, 'amount', e.target.value)}
+                  />
                 </div>
               )}
+              {items.length > 1 && <button type="button" className="btn secondary" onClick={() => removeItem(idx)}>−</button>}
             </div>
-          </div>
-        ))}
+          );
+        })}
         <button type="button" className="btn secondary" onClick={addItem} style={{ marginBottom: 14 }}>+ {t('add_item')}</button>
         <div className="form-group">
           <label>{t('notes')}</label>

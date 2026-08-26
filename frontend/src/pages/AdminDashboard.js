@@ -52,11 +52,17 @@ export default function AdminDashboard() {
 
       {loading && !data ? <SkeletonCards count={4} tall /> : data && (
         <div className="cards-grid exec-stats">
-          <StatCard icon="💰" label={t('total_stock_cost')} value={formatMoney(data.total_cost_value)}
-            sub={`${formatMeters(data.total_meters)} ${t('meters')} · ${formatQty(data.total_carpets)} ${t('pieces')}`} />
+          <StatCard icon="💰" label={t('total_stock_cost')} value={formatMoney(data.total_cost_value)} />
           <StatCard icon="📈" label={t('total_stock_sell')} value={formatMoney(data.total_sell_value)} />
           <StatCard icon="🏦" label={t('total_branch_debt')} value={formatMoney(data.total_branch_debt)} tone="gold" />
           <StatCard icon="📊" label={t('potential_profit')} value={formatMoney(data.potential_profit)} tone="green" />
+        </div>
+      )}
+
+      {data && (
+        <div className="cards-grid">
+          <MiniStat label={t('piece_products')} main={`${formatQty(data.total_carpets)} ${t('pieces').toLowerCase()}`} />
+          <MiniStat label={t('meter_products')} main={`${formatMeters(data.total_meters)} ${t('meters').toLowerCase()}`} />
         </div>
       )}
 
@@ -171,7 +177,7 @@ export default function AdminDashboard() {
                                   ? <div className="expand-empty">{t('no_transfers_yet')}</div>
                                   : b.recent_transfers.map((tr) => (
                                     <div className="expand-line" key={tr.id}>
-                                      <span>{dateStr(tr.transfer_date)} · {tr.items.map((i) => `${lang === 'ru' ? i.name_ru : i.name_uz} ×${i.quantity}`).join(', ')}</span>
+                                      <span>{dateStr(tr.transfer_date)} · {tr.items.map((i) => `${lang === 'ru' ? i.name_ru : i.name_uz} — ${i.unit_type === 'meter' ? `${formatMeters(i.meter_quantity)} ${t('meters').toLowerCase()}` : `${formatQty(i.quantity)} ${t('pieces').toLowerCase()}`}`).join(', ')}</span>
                                       <strong>{formatMoney(tr.total_sell_value)}</strong>
                                     </div>
                                   ))}

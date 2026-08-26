@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import DateFilterBar from '../components/DateFilterBar';
 import { SkeletonTable, EmptyState } from '../components/Skeleton';
 import api from '../services/api';
-import { formatMoney, dateStr } from '../utils/format';
+import { formatMoney, formatQty, formatMeters, dateStr } from '../utils/format';
 import { defaultRange } from '../utils/dateRange';
 import { useLang } from '../context/LangContext';
 
@@ -26,6 +26,15 @@ export default function Transfers() {
   useEffect(load, [load]);
 
   const name = (p) => (lang === 'ru' ? p.name_ru : p.name_uz);
+
+  function itemLabel(i) {
+    const p = i.Product;
+    const label = p ? name(p) : '';
+    return p && p.unit_type === 'meter'
+      ? `${label} — ${formatMeters(i.meter_quantity)} ${t('meters').toLowerCase()}`
+      : `${label} — ${formatQty(i.quantity)} ${t('pieces').toLowerCase()}`;
+  }
+
   const totalCost = transfers.reduce((s, x) => s + Number(x.total_cost || 0), 0);
   const totalSell = transfers.reduce((s, x) => s + Number(x.total_sell_value || 0), 0);
 
@@ -57,7 +66,7 @@ export default function Transfers() {
                     <td>{dateStr(tr.transfer_date)}</td>
                     <td>{tr.fromWarehouse?.name}</td>
                     <td>{tr.toWarehouse?.name}</td>
-                    <td>{tr.items?.map((i) => `${i.Product ? name(i.Product) : ''} ×${i.quantity}`).join(', ')}</td>
+                    <td>{tr.items?.map((i) => itemLabel(i)).join(', ')}</td>
                     <td>{formatMoney(tr.total_cost)}</td>
                     <td>{formatMoney(tr.total_sell_value)}</td>
                     <td>{tr.creator?.name}</td>

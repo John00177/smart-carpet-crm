@@ -4,7 +4,7 @@ const {
 const { computeBranchDebt } = require('./paymentController');
 const { branchProfitability } = require('./expenseController');
 const { aggregate } = require('./stockController');
-const { valueOf } = require('../utils/meters');
+const { valueOf, isMeterType } = require('../utils/meters');
 const {
   todayStr, daysAgoStr, monthStartStr, localDateStr, rangeFromQuery, dateWhere,
 } = require('../utils/date');
@@ -169,6 +169,8 @@ exports.adminDashboard = async (req, res) => {
             total_sell_value: tr.total_sell_value,
             items: (tr.items || []).map((i) => ({
               quantity: i.quantity,
+              meter_quantity: i.meter_quantity,
+              unit_type: i.Product ? i.Product.unit_type : 'piece',
               name_uz: i.Product ? i.Product.name_uz : null,
               name_ru: i.Product ? i.Product.name_ru : null,
             })),
@@ -327,18 +329,18 @@ exports.branchDashboard = async (req, res) => {
       include: [Product],
     });
     const stock_items = stockRows
-      .filter((s) => s.Product && parseFloat(s.meter_quantity) > 0)
+      .filter((s) => s.Product && (isMeterType(s.Product) ? parseFloat(s.meter_quantity) > 0 : s.quantity > 0))
       .map((s) => {
-        const v = valueOf(s.meter_quantity, s.Product);
+        const v = valueOf(s, s.Product);
         return {
           id: s.Product.id,
           name_uz: s.Product.name_uz,
           name_ru: s.Product.name_ru,
           size: s.Product.size,
           color: s.Product.color,
-          meters_per_piece: s.Product.meters_per_piece,
-          meter_quantity: v.meters,
-          quantity: v.pieces,
+          unit_type: s.Product.unit_type,
+          meter_quantity: v.meter_quantity,
+          quantity: v.quantity,
           cost_value: v.cost,
           sell_value: v.sell,
         };
@@ -389,7 +391,7 @@ exports.warehouseDashboard = async (req, res) => {
       ? (await Stock.findAll({ where: { warehouse_id: central.id }, include: [Product] }))
         .filter((s) => s.Product)
         .map((s) => {
-          const v = valueOf(s.meter_quantity, s.Product);
+          const v = valueOf(s, s.Product);
           return {
             id: s.Product.id,
             name_uz: s.Product.name_uz,
@@ -398,9 +400,9 @@ exports.warehouseDashboard = async (req, res) => {
             color: s.Product.color,
             cost_price: s.Product.cost_price,
             sell_price: s.Product.sell_price,
-            meters_per_piece: s.Product.meters_per_piece,
-            quantity: v.pieces,
-            meter_quantity: v.meters,
+            unit_type: s.Product.unit_type,
+            quantity: v.quantity,
+            meter_quantity: v.meter_quantity,
           };
         })
       : [];

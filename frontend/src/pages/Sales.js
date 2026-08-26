@@ -4,7 +4,7 @@ import Modal from '../components/Modal';
 import DateFilterBar from '../components/DateFilterBar';
 import { SkeletonTable, EmptyState } from '../components/Skeleton';
 import api from '../services/api';
-import { formatMoney, formatMeters, dateStr } from '../utils/format';
+import { formatMoney, formatQty, formatMeters, dateStr } from '../utils/format';
 import { defaultRange } from '../utils/dateRange';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -31,7 +31,13 @@ export default function Sales() {
 
   const name = (p) => (lang === 'ru' ? p.name_ru : p.name_uz);
   const total = sales.reduce((s, x) => s + Number(x.total_amount || 0), 0);
-  const totalMeters = sales.reduce((s, x) => s + Number(x.meter_quantity || 0), 0);
+
+  function saleAmount(s) {
+    const meter = s.Product && s.Product.unit_type === 'meter';
+    return meter
+      ? `${formatMeters(s.meter_quantity)} ${t('meters').toLowerCase()}`
+      : `${formatQty(s.quantity)} ${t('pieces').toLowerCase()}`;
+  }
 
   return (
     <Layout>
@@ -50,9 +56,7 @@ export default function Sales() {
         <div className="section">
           <div className="section-title">
             <span>{user.role === 'branch' ? t('my_sales') : t('all_sales')}</span>
-            <span className="section-total">
-              {formatMeters(totalMeters)} {t('meters').toLowerCase()} · <strong className="pos">{formatMoney(total)}</strong>
-            </span>
+            <span className="section-total"><strong className="pos">{formatMoney(total)}</strong></span>
           </div>
           <div className="table-wrap">
             <table>
@@ -60,7 +64,7 @@ export default function Sales() {
                 <tr>
                   <th>{t('date')}</th>
                   {user.role !== 'branch' && <th>{t('branch')}</th>}
-                  <th>{t('product')}</th><th>{t('meters')}</th><th>{t('price_per_meter')}</th>
+                  <th>{t('product')}</th><th>{t('qty')}</th><th>{t('price')}</th>
                   <th>{t('total')}</th><th>{t('customer_name')}</th>
                 </tr>
               </thead>
@@ -70,7 +74,7 @@ export default function Sales() {
                     <td>{dateStr(s.sale_date)}</td>
                     {user.role !== 'branch' && <td>{s.branch_id}</td>}
                     <td>{s.Product ? name(s.Product) : ''}</td>
-                    <td>{formatMeters(s.meter_quantity)}</td>
+                    <td>{saleAmount(s)}</td>
                     <td>{formatMoney(s.sell_price)}</td>
                     <td>{formatMoney(s.total_amount)}</td>
                     <td>{s.customer_name || '-'}</td>
@@ -93,29 +97,26 @@ export default function Sales() {
 function SaleModal({ onClose, onSaved }) {
   const { t, lang } = useLang();
   const [products, setProducts] = useState([]);
-  const [form, setForm] = useState({ product_id: '', meter_quantity: '', sell_price: '', customer_name: '', notes: '' });
+  const [form, setForm] = useState({ product_id: '', amount: '', sell_price: '', customer_name: '', notes: '' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { api.get('/products').then((res) => setProducts(res.data)); }, []);
 
   const selected = products.find((p) => String(p.id) === String(form.product_id));
-  const mpp = selected ? Number(selected.meters_per_piece) || 1 : null;
-  const meters = Number(form.meter_quantity) || 0;
-  const total = meters * (Number(form.sell_price) || 0);
+  const isMeter = selected && selected.unit_type === 'meter';
+  const amount = Number(form.amount) || 0;
+  const total = amount * (Number(form.sell_price) || 0);
 
   function onProductChange(id) {
     const p = products.find((x) => String(x.id) === String(id));
-    const perMeter = p && Number(p.meters_per_piece) > 0
-      ? Math.round((Number(p.retail_price) / Number(p.meters_per_piece)) * 100) / 100
-      : (p ? p.retail_price : '');
-    setForm({ ...form, product_id: id, sell_price: perMeter });
+    setForm({ ...form, product_id: id, amount: '', sell_price: p ? p.retail_price : form.sell_price });
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (!form.product_id || !form.meter_quantity || !form.sell_price) {
+    if (!form.product_id || !form.amount || !form.sell_price) {
       setError(t('all_fields_required'));
       return;
     }
@@ -123,7 +124,7 @@ function SaleModal({ onClose, onSaved }) {
     try {
       await api.post('/sales', {
         product_id: Number(form.product_id),
-        meter_quantity: meters,
+        amount,
         sell_price: Number(form.sell_price),
         customer_name: form.customer_name,
         notes: form.notes,
@@ -131,8 +132,8 @@ function SaleModal({ onClose, onSaved }) {
       onSaved();
     } catch (err) {
       const d = err.response?.data;
-      if (d?.error === 'INSUFFICIENT_METERS') {
-        setError(`${t('insufficient_meters')} (${formatMeters(d.available_meters)} ${t('available')})`);
+      if (d?.error === 'INSUFFICIENT_STOCK') {
+        setError(`${t('insufficient_stock')} (${formatMeters(d.available_amount)} ${t('available')})`);
       } else {
         setError(d?.error || t('failed_to_save'));
       }
@@ -153,15 +154,19 @@ function SaleModal({ onClose, onSaved }) {
             ))}
           </select>
         </div>
+        {selected && (
+          <div className="form-group">
+            <label>{isMeter ? t('sell_meters') : t('sell_pcs')}</label>
+            <input
+              type="number" min={isMeter ? '0.01' : '1'} step={isMeter ? '0.01' : '1'}
+              value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            />
+          </div>
+        )}
         <div className="form-group">
-          <label>{t('meters_sold')}</label>
-          <input type="number" min="0.01" step="0.01" value={form.meter_quantity}
-            onChange={(e) => setForm({ ...form, meter_quantity: e.target.value })} />
-          {mpp && meters > 0 && (
-            <div className="field-hint">{t('approx_pieces')}: {formatMeters(meters / mpp)}</div>
-          )}
+          <label>{isMeter ? t('price_per_meter') : t('sell_price_unit')}</label>
+          <input type="number" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} />
         </div>
-        <div className="form-group"><label>{t('price_per_meter')}</label><input type="number" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} /></div>
         {total > 0 && (
           <div className="modal-total"><span>{t('total')}</span><strong>{formatMoney(total)}</strong></div>
         )}

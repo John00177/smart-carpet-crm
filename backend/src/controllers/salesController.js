@@ -2,7 +2,7 @@ const { Op } = require('sequelize');
 const { BranchSale, Stock, Warehouse, Product } = require('../models');
 const sequelize = require('../config/database');
 const { todayStr, rangeFromQuery, dateWhere } = require('../utils/date');
-const { metersFromPieces, piecesFromMeters, applyStockDelta, round2 } = require('../utils/meters');
+const { isMeterType, applyStockDelta, round2 } = require('../utils/meters');
 
 async function findBranchWarehouse(branchId, t) {
   return Warehouse.findOne({ where: { type: 'branch', branch_id: branchId }, transaction: t });
@@ -47,22 +47,17 @@ exports.create = async (req, res) => {
   try {
     const branch_id = req.user.branch_id;
     const { product_id, sell_price, currency, sale_date, customer_name, notes } = req.body;
+    const amount = Number(req.body.amount);
+
+    if (!product_id || !isFinite(amount) || amount <= 0 || sell_price == null) {
+      await t.rollback();
+      return res.status(400).json({ error: 'product_id, amount and sell_price are required' });
+    }
 
     const product = await Product.findByPk(product_id, { transaction: t });
     if (!product) {
       await t.rollback();
       return res.status(404).json({ error: 'Product not found' });
-    }
-
-    // Metres are the primary unit a branch sells in. `quantity` (pieces) is
-    // accepted only as a fallback for older clients.
-    const meters = req.body.meter_quantity != null && req.body.meter_quantity !== ''
-      ? Number(req.body.meter_quantity)
-      : metersFromPieces(Number(req.body.quantity), product);
-
-    if (!product_id || !isFinite(meters) || meters <= 0 || sell_price == null) {
-      await t.rollback();
-      return res.status(400).json({ error: 'product_id, meter_quantity and sell_price are required' });
     }
 
     const warehouse = await findBranchWarehouse(branch_id, t);
@@ -71,26 +66,25 @@ exports.create = async (req, res) => {
       return res.status(404).json({ error: 'Branch warehouse not found' });
     }
 
+    const meter = isMeterType(product);
     const stock = await Stock.findOne({ where: { warehouse_id: warehouse.id, product_id }, transaction: t });
-    const availableMeters = stock ? parseFloat(stock.meter_quantity) : 0;
-    if (availableMeters < meters) {
+    const available = stock ? parseFloat(meter ? stock.meter_quantity : stock.quantity) : 0;
+    if (available < amount) {
       await t.rollback();
       return res.status(400).json({
-        error: 'INSUFFICIENT_METERS',
-        available_meters: availableMeters,
-        requested_meters: meters,
+        error: 'INSUFFICIENT_STOCK',
+        available_amount: available,
+        requested_amount: amount,
       });
     }
 
-    const pieces = piecesFromMeters(meters, product);
-    // sell_price is a per-metre price for metre-based sales.
-    const total_amount = round2(meters * Number(sell_price));
+    const total_amount = round2(amount * Number(sell_price));
 
     const sale = await BranchSale.create({
       branch_id,
       product_id,
-      quantity: pieces,
-      meter_quantity: meters,
+      quantity: meter ? 0 : Math.round(amount),
+      meter_quantity: meter ? amount : 0,
       sell_price,
       total_amount,
       currency: currency || 'USD',
@@ -102,7 +96,7 @@ exports.create = async (req, res) => {
     await applyStockDelta({
       warehouseId: warehouse.id,
       productId: product_id,
-      meterDelta: -meters,
+      delta: -amount,
       product,
       transaction: t,
     });

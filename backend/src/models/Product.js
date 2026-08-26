@@ -10,8 +10,9 @@ const Product = sequelize.define('Product', {
   cost_price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
   sell_price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
   retail_price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-  // How many square metres one piece of this carpet covers (e.g. 4x5m -> 20).
-  meters_per_piece: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 1 },
+  // A product is sold EITHER by whole piece OR by the metre, never both.
+  // 'piece': tracked via Stock.quantity. 'meter': tracked via Stock.meter_quantity.
+  unit_type: { type: DataTypes.ENUM('piece', 'meter'), allowNull: false, defaultValue: 'piece' },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
 }, {
   tableName: 'products',
